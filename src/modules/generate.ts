@@ -152,7 +152,7 @@ export const generateAppsScriptTypes = async ({
       .join('\n\n');
     outputContent += `export interface ServerScripts {\n${formattedMethods}\n}\n`;
     consola.info(
-      `Interface 'ServerScript' type definitions written to ${absoluteOutputFile} (${methodDefinitions.length} functions).`,
+      `Interface 'ServerScript' type definitions written to ${absoluteOutputFile} (${methodDefinitions.length} function(s)).`,
     );
   } else {
     outputContent = 'export interface ServerScripts {}\n';

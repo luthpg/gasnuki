@@ -1,7 +1,7 @@
 #! /usr/bin/env  node
 
 import { Command } from 'commander';
-import { name, version } from '../package.json';
+import { version } from '../package.json';
 import { type GenerateOptions, generateTypes } from './index';
 
 export const parseArgs = async (command: Command) => {
@@ -14,7 +14,11 @@ export const parseArgs = async (command: Command) => {
 export const cli = async () => {
   const program = new Command();
 
-  program.name(name);
+  program
+    .name('gasnuki')
+    .description(
+      'Generate type definitions and utilities for Google Apps Script client-side API',
+    );
 
   program.version(version, '-v, --version');
 
@@ -23,7 +27,7 @@ export const cli = async () => {
     .option(
       '-p, --project <project>',
       'Project root directory path',
-      process.cwd(),
+      process.cwd().replace(/\\/g, '/'),
     )
     .option(
       '-s, --srcDir <dir>',
