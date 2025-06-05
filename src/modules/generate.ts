@@ -125,7 +125,7 @@ export const generateAppsScriptTypes = async ({
     for (const funcDecl of sourceFile.getFunctions()) {
       if (!funcDecl.isAmbient()) {
         const name = funcDecl.getName();
-        if (name != null) {
+        if (name != null && !name.endsWith('_')) {
           methodDefinitions.push(getInterfaceMethodDefinition_(name, funcDecl));
         }
       }
@@ -138,7 +138,8 @@ export const generateAppsScriptTypes = async ({
           if (
             initializer != null &&
             (initializer.getKind() === SyntaxKind.ArrowFunction ||
-              initializer.getKind() === SyntaxKind.FunctionExpression)
+              initializer.getKind() === SyntaxKind.FunctionExpression) &&
+            !varName.endsWith('_')
           ) {
             methodDefinitions.push(
               getInterfaceMethodDefinition_(
@@ -173,12 +174,12 @@ export const generateAppsScriptTypes = async ({
           .join('\n'),
       )
       .join('\n\n');
-    outputContent += `export interface ServerScripts {\n${formattedMethods}\n}\n`;
+    outputContent += `export type ServerScripts = {\n${formattedMethods}\n}\n`;
     consola.info(
       `Interface 'ServerScript' type definitions written to ${absoluteOutputFile} (${methodDefinitions.length} function(s), ${globalTypeDefinitions.length} type(s)).`,
     );
   } else {
-    outputContent = 'export interface ServerScripts {}\n';
+    outputContent = 'export type ServerScripts = {}\n';
     consola.info(
       `Interface 'ServerScript' type definitions written to ${absoluteOutputFile} (no functions found).`,
     );
