@@ -92,6 +92,7 @@ export const generateAppsScriptTypes = async ({
 
   const project = new Project({
     tsConfigFilePath: path.resolve(projectPath, 'tsconfig.json'),
+    skipAddingFilesFromTsConfig: true,
   });
 
   project.addSourceFilesAtPaths(
