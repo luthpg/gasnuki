@@ -1,0 +1,51 @@
+{
+  "name": "@ciderjs/gasnuki",
+  "version": "0.1.0",
+  "description": "",
+  "main": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "gasnuki": "dist/cli.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "dev": "jiti src/cli.ts -p playground/react -s src/server",
+    "start": "node dist/cli.mjs -p playground/react -s src/server",
+    "check": "biome check --write",
+    "build": "unbuild",
+    "test": "vitest run",
+    "prepare": "pnpm run check && pnpm run build"
+  },
+  "keywords": ["google-apps-script", "typescript", "@google/clasp"],
+  "author": "ciderjs/luth",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com:luthpg/gasnuki.git"
+  },
+  "bugs": {
+    "url": "https://github.com/luthpg/gasnuki/issues"
+  },
+  "packageManager": "pnpm@10.11.1",
+  "dependencies": {
+    "@inquirer/prompts": "^7.5.3",
+    "chokidar": "^4.0.3",
+    "commander": "^14.0.0",
+    "consola": "^3.4.2",
+    "ts-morph": "^26.0.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^22.15.29",
+    "jiti": "^2.4.2",
+    "typescript": "^5.8.3",
+    "unbuild": "^3.5.0",
+    "vitest": "^3.2.1"
+  }
+}
