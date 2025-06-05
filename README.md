@@ -9,13 +9,13 @@ Type definitions and utilities for Google Apps Script client-side API
 ## Installation
 
 ```bash
-npm install gasnuki
+npm install @ciderjs/gasnuki
 ```
 
 or
 
 ```bash
-yarn add gasnuki
+pnpm add @ciderjs/gasnuki
 ```
 
 ## Usage
@@ -23,7 +23,7 @@ yarn add gasnuki
 1. Generate type definitions by running:
 
 ```bash
-npx gasnuki
+npx @ciderjs/gasnuki
 ```
 
 This will generate type definition files in the `types` directory by default.

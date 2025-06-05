@@ -10,13 +10,13 @@ Apps Scriptとフロントエンド間の型安全な通信をサポートしま
 ## インストール
 
 ```bash
-npm install gasnuki
+npm install @ciderjs/gasnuki
 ```
 
 または
 
 ```bash
-yarn add gasnuki
+pnpm add @ciderjs/gasnuki
 ```
 
 ## 使い方
@@ -24,7 +24,7 @@ yarn add gasnuki
 1. 型定義ファイルを生成します:
 
 ```bash
-npx gasnuki
+npx @ciderjs/gasnuki
 ```
 
 デフォルトでは `types` ディレクトリに型定義ファイルが生成されます。
