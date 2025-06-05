@@ -7,7 +7,7 @@ on:
 
 jobs:
   publish:
-    name: Node.js ${{ matrix.python-version }} on ${{ matrix.os }}
+    name: Node.js ${{ matrix.node-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     strategy:
