@@ -1,11 +1,11 @@
 /node_modules
 /src
 /tests
-/playgrounds
+/playground
 /.github
 /.bin
 *.config.ts
 tsconfig.json
 biome.json
 pnpm-lock.yaml
-pnpm-workspaace.yaml
+pnpm-workspace.yaml
