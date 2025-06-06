@@ -1,6 +1,6 @@
 {
   "name": "@ciderjs/gasnuki",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "",
   "main": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -15,10 +15,11 @@
     }
   },
   "scripts": {
-    "dev": "jiti src/cli.ts -p playground/react -s src/server",
+    "prebuild": "jiti bin/generate.ts",
+    "dev": "pnpm prebuild && jiti src/cli.ts -p playground/react -s src/server",
     "start": "node dist/cli.mjs -p playground/react -s src/server",
     "check": "biome check --write",
-    "build": "unbuild",
+    "build": "pnpm prebuild && unbuild",
     "test": "vitest run",
     "prepare": "pnpm run check && pnpm run build"
   },

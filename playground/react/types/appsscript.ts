@@ -5,7 +5,7 @@ interface Person {
   age: number;
 }
 
-export interface ServerScripts {
+export type ServerScripts = {
   myFunction(): string;
 
   test<T extends string | number>(x: T): Person;
@@ -45,15 +45,20 @@ export declare interface GoogleClientSideApi {
   script: {
     run: _AppsScriptRun;
     url: {
-      getLocation: (callback: (location: _WebAppLovacationType) => void) => void;
+      getLocation: (
+        callback: (location: _WebAppLovacationType) => void,
+      ) => void;
     };
     history: {
       push: _AppsScriptHistoryFunction;
       replace: _AppsScriptHistoryFunction;
       setChangeHandler: (
-        callback: (e: { state: object; location: _WebAppLovacationType }) => void
+        callback: (e: {
+          state: object;
+          location: _WebAppLovacationType;
+        }) => void,
       ) => void;
-    }
+    };
   };
 }
 
