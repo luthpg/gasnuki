@@ -5,6 +5,7 @@ type RemoveReturnType<T> = {
 };
 
 type _AppsScriptRun = RemoveReturnType<ServerScripts> & {
+  [key: string]: (...args: any[]) => any;
   withSuccessHandler: <T = string | number | boolean | undefined, U = any>(
     callback: (returnValues: T, userObject?: U) => void,
   ) => _AppsScriptRun;
