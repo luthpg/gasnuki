@@ -1,7 +1,7 @@
 {
   "name": "@ciderjs/gasnuki",
-  "version": "0.1.4",
-  "description": "",
+  "version": "0.1.5",
+  "description": "Type definitions and utilities for Google Apps Script client-side API",
   "main": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "bin": {
