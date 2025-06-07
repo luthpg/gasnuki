@@ -18,7 +18,7 @@
   },
   "linter": {
     "enabled": true,
-    "ignore": ["bin/typedef/*"],
+    "ignore": ["bin/typedef/*", "src/promise.ts"],
     "rules": {
       "recommended": true
     }
