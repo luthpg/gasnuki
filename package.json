@@ -12,6 +12,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
+    },
+    "./promise": {
+      "types": "./dist/promise.d.ts",
+      "import": "./dist/promise.mjs",
+      "require": "./dist/promise.cjs"
     }
   },
   "scripts": {
