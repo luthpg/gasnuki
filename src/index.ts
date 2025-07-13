@@ -3,6 +3,8 @@ import * as chokidar from 'chokidar';
 import { consola } from 'consola';
 import { generateAppsScriptTypes } from './modules/generate';
 
+export { defineConfig, type UserConfig } from './modules/config';
+
 export interface GenerateOptions {
   project: string;
   srcDir: string;

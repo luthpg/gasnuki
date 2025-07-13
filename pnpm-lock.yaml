@@ -20,6 +20,9 @@ importers:
       consola:
         specifier: ^3.4.2
         version: 3.4.2
+      jiti:
+        specifier: ^2.4.2
+        version: 2.4.2
       ts-morph:
         specifier: ^26.0.0
         version: 26.0.0
@@ -30,9 +33,6 @@ importers:
       '@types/node':
         specifier: ^22.15.29
         version: 22.15.29
-      jiti:
-        specifier: ^2.4.2
-        version: 2.4.2
       typescript:
         specifier: ^5.8.3
         version: 5.8.3
