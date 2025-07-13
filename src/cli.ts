@@ -3,12 +3,38 @@
 import { Command } from 'commander';
 import { version } from '../package.json';
 import { type GenerateOptions, generateTypes } from './index';
+import { loadConfig } from './modules/config';
+import * as path from 'node:path';
 
 export const parseArgs = async (command: Command) => {
-  const { project, srcDir, outDir, outputFile, watch } =
-    command.opts<GenerateOptions>();
+  const cliOpts = command.opts<GenerateOptions>();
 
-  await generateTypes({ project, srcDir, outDir, outputFile, watch });
+  const fileConfig = await loadConfig(path.resolve(cliOpts.project));
+
+  const defaultOpts: Partial<GenerateOptions> = {};
+  for (const option of command.options) {
+    const key = option.attributeName() as keyof GenerateOptions;
+    defaultOpts[key] = option.defaultValue;
+  }
+
+  const explicitCliOpts: Partial<GenerateOptions> = {};
+  for (const option of command.options) {
+    const key = option.attributeName() as keyof GenerateOptions;
+    if (command.getOptionValueSource(key) === 'cli') {
+      // biome-ignore lint: use any for Partial object
+      explicitCliOpts[key] = cliOpts[key] as any;
+    }
+  }
+
+  const finalOptions: GenerateOptions = {
+    ...(defaultOpts as GenerateOptions),
+    ...fileConfig,
+    ...explicitCliOpts,
+    project: cliOpts.project,
+    watch: cliOpts.watch,
+  };
+
+  await generateTypes(finalOptions);
 };
 
 export const cli = async () => {
