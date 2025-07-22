@@ -1,19 +1,28 @@
-type Promised<T> = {
+export type Promised<T> = {
   [K in keyof T]: T[K] extends (...args: infer A) => infer R
     ? (...args: A) => Promise<R>
     : T[K];
 };
 
-export const ServerScripts = <
+export type PartialScriptType<T> = Partial<Promised<T>>;
+
+export const getPromisedServerScripts = <
   T extends Record<string, (...args: any[]) => any> = Omit<
-    Omit<
-      Omit<typeof google.script.run, 'withSuccessHandler'>,
-      'withFailureHandler'
-    >,
-    'withUserObject'
+    typeof google.script.run,
+    'withSuccessHandler' | 'withFailureHandler' | 'withUserObject'
   >,
->(): Promised<T> => {
-  const serverScripts: Record<string, (...arg: any[]) => Promise<any>> = {};
+>(
+  mockupFunctions: PartialScriptType<T> = {},
+): Promised<T> => {
+  const serverScripts: Record<
+    string,
+    ((...arg: any[]) => Promise<any>) | undefined
+  > = {
+    ...mockupFunctions,
+  };
+  if ('google' in globalThis) {
+    return serverScripts as Promised<T>;
+  }
   for (const method of Object.keys(google.script.run)) {
     type TargetScriptType = T[typeof method];
     if (

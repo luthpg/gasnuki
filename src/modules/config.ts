@@ -3,7 +3,6 @@ import * as path from 'node:path';
 import { consola } from 'consola';
 import { createJiti } from 'jiti';
 import type { GenerateOptions } from '..';
-import { FunctionDeclaration } from 'ts-morph';
 
 /**
  * User-defined configuration for gasnuki.

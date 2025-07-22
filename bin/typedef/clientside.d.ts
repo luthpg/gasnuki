@@ -1,4 +1,4 @@
-type RemoveReturnType<T> = {
+export type RemoveReturnType<T> = {
   [P in keyof T]: T[P] extends (...args: infer A) => any
     ? (...args: A) => void
     : T[P];

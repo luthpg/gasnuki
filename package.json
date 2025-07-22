@@ -28,11 +28,7 @@
     "test": "vitest run",
     "prepare": "pnpm run check && pnpm run build"
   },
-  "keywords": [
-    "google-apps-script",
-    "typescript",
-    "@google/clasp"
-  ],
+  "keywords": ["google-apps-script", "typescript", "@google/clasp"],
   "author": "ciderjs/luth",
   "license": "ISC",
   "repository": {
