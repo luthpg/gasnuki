@@ -20,7 +20,7 @@ export const getPromisedServerScripts = <
   > = {
     ...mockupFunctions,
   };
-  if (!('google' in globalThis)) {
+  if (!('google' in globalThis) || !google?.script?.run) {
     return serverScripts as Promised<T>;
   }
   for (const method of Object.keys(google.script.run)) {
