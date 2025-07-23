@@ -1,3 +1,6 @@
 onlyBuiltDependencies:
   - '@biomejs/biome'
   - esbuild
+packages:
+  - playground/react
+  - playground/vue3

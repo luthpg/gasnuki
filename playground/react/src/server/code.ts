@@ -1,18 +1,18 @@
-function myFunction() {
-  return 'Hello world!';
+export function sayHello(name: string) {
+  return `Hello, ${name}!`;
 }
 
-interface Person {
+export interface Person {
   name: string;
   age: number;
 }
 
-function test<T extends string | number>(x: T): Person {
-  return typeof x === 'string' ? {
+export function getPerson<T extends string | number>(x: T): string {
+  return JSON.stringify( typeof x === 'string' ? {
     age: 15,
     name: x
   } : {
     age: x,
     name: 'John'
-  }
+  })
 };
