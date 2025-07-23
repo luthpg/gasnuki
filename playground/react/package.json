@@ -10,6 +10,7 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
+		"@ciderjs/gasnuki": "../..",
 		"react": "^19.1.0",
 		"react-dom": "^19.1.0"
 	},
@@ -21,7 +22,6 @@
 		"eslint": "^9.25.0",
 		"eslint-plugin-react-hooks": "^5.2.0",
 		"eslint-plugin-react-refresh": "^0.4.19",
-		"gasnuki": "../..",
 		"globals": "^16.0.0",
 		"typescript": "~5.8.3",
 		"typescript-eslint": "^8.30.1",

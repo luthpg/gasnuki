@@ -1,6 +1,6 @@
 {
   "name": "@ciderjs/gasnuki",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Type definitions and utilities for Google Apps Script client-side API",
   "main": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -21,18 +21,16 @@
   },
   "scripts": {
     "prebuild": "jiti bin/generate.ts",
-    "dev": "pnpm prebuild && jiti src/cli.ts -p playground/react",
+    "dev": "pnpm prebuild && jiti src/cli.ts -p playground/react -s src/server",
     "start": "node dist/cli.mjs -p playground/react -s src/server",
     "check": "biome check --write",
     "build": "unbuild",
     "test": "vitest run",
-    "prepare": "pnpm run check && pnpm run build"
+    "prepare": "pnpm run check && pnpm run build",
+    "pg:react": "pnpm -C playground/react",
+    "pg:vue": "pnpm -C playground/vue3"
   },
-  "keywords": [
-    "google-apps-script",
-    "typescript",
-    "@google/clasp"
-  ],
+  "keywords": ["google-apps-script", "typescript", "@google/clasp"],
   "author": "ciderjs/luth",
   "license": "ISC",
   "repository": {

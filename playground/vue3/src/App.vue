@@ -1,5 +1,16 @@
 <script setup lang="ts">
+import { ref } from "vue";
 import HelloWorld from "./components/HelloWorld.vue";
+import { serverScripts } from "./lib/gas";
+
+const name = ref<string>("");
+const message = ref<string | null>(null);
+
+const sayHello = async (name: string) => {
+  message.value = null;
+  const result = await serverScripts.sayHello(name);
+  message.value = result;
+};
 </script>
 
 <template>
@@ -10,6 +21,11 @@ import HelloWorld from "./components/HelloWorld.vue";
     <a href="https://vuejs.org/" target="_blank">
       <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
     </a>
+    <div>
+      <input v-model="name" placeholder="input your name..." />
+      <p v-if="message">{{ message }}</p>
+      <button v-else v-on:click="() => sayHello(name)" :style="{ marginLeft: '10px'}">Say hello</button>
+			</div>
   </div>
   <HelloWorld msg="Vite + Vue" />
 </template>

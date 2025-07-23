@@ -1,10 +1,10 @@
 #! /usr/bin/env  node
 
+import * as path from 'node:path';
 import { Command } from 'commander';
 import { version } from '../package.json';
 import { type GenerateOptions, generateTypes } from './index';
 import { loadConfig } from './modules/config';
-import * as path from 'node:path';
 
 export const parseArgs = async (command: Command) => {
   const cliOpts = command.opts<GenerateOptions>();
