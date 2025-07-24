@@ -20,17 +20,21 @@
     }
   },
   "scripts": {
-    "prebuild": "jiti bin/generate.ts",
+    "prebuild": "jiti .bin/generate.ts",
     "dev": "pnpm prebuild && jiti src/cli.ts -p playground/react -s src/server",
     "start": "node dist/cli.mjs -p playground/react -s src/server",
     "check": "biome check --write",
     "build": "unbuild",
     "test": "vitest run",
-    "prepare": "pnpm run check && pnpm run build",
+    "prepare": "pnpm run check && pnpm run test && pnpm run build",
     "pg:react": "pnpm -C playground/react",
     "pg:vue": "pnpm -C playground/vue3"
   },
-  "keywords": ["google-apps-script", "typescript", "@google/clasp"],
+  "keywords": [
+    "google-apps-script",
+    "typescript",
+    "@google/clasp"
+  ],
   "author": "ciderjs/luth",
   "license": "ISC",
   "repository": {
@@ -52,6 +56,7 @@
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@types/node": "^22.15.29",
+    "@vitest/coverage-v8": "3.2.1",
     "typescript": "^5.8.3",
     "unbuild": "^3.5.0",
     "vitest": "^3.2.1"
