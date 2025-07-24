@@ -20,21 +20,17 @@
     }
   },
   "scripts": {
-    "prebuild": "jiti .bin/generate.ts",
+    "generate": "jiti .bin/generate.ts",
     "dev": "pnpm prebuild && jiti src/cli.ts -p playground/react -s src/server",
     "start": "node dist/cli.mjs -p playground/react -s src/server",
     "check": "biome check --write",
     "build": "unbuild",
     "test": "vitest run",
-    "prepare": "pnpm run check && pnpm run test && pnpm run build",
+    "prepare": "pnpm run generate && pnpm run check && pnpm run test && pnpm run build",
     "pg:react": "pnpm -C playground/react",
     "pg:vue": "pnpm -C playground/vue3"
   },
-  "keywords": [
-    "google-apps-script",
-    "typescript",
-    "@google/clasp"
-  ],
+  "keywords": ["google-apps-script", "typescript", "@google/clasp"],
   "author": "ciderjs/luth",
   "license": "ISC",
   "repository": {
