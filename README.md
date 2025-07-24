@@ -26,11 +26,22 @@ pnpm add @ciderjs/gasnuki
 npx @ciderjs/gasnuki
 ```
 
+... or, add project's npm-script in `package.json`:
+
+```jsonc
+{
+  // others...
+  "scripts": {
+    "gas": "gasnuki"
+  }
+}
+```
+
 This will generate type definition files in the `types` directory by default.
 
 2. Make sure the generated directory (default: `types`) is included in your `tsconfig.json`:
 
-```json
+```jsonc
 {
   "compilerOptions": {
     // ... your options ...
