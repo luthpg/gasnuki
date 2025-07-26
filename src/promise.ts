@@ -14,32 +14,23 @@ export const getPromisedServerScripts = <
 >(
   mockupFunctions: PartialScriptType<T> = {},
 ): Promised<T> => {
-  const serverScripts: Record<
-    string,
-    ((...arg: any[]) => Promise<any>) | undefined
-  > = {
-    ...mockupFunctions,
-  };
-  if (!('google' in globalThis) || !google?.script?.run) {
-    return serverScripts as Promised<T>;
-  }
-  for (const method of Object.keys(google.script.run)) {
-    type TargetScriptType = T[typeof method];
-    if (
-      ['withSuccessHandler', 'withFailureHandler', 'withUserObject'].includes(
-        String(method),
-      )
-    ) {
-      continue;
-    }
-    serverScripts[method] = ((...args: Parameters<TargetScriptType>) =>
-      new Promise<ReturnType<TargetScriptType>>((resolve, reject) => {
-        google.script.run
-          .withSuccessHandler<ReturnType<TargetScriptType>>(resolve)
-          .withFailureHandler(reject)
-          // ts-expect-error arguments has some types
-          [method](...args);
-      })) as Promised<T>[typeof method];
-  }
-  return serverScripts as Promised<T>;
+  return new Proxy<
+    Record<string, ((...arg: any[]) => Promise<any>) | undefined>
+  >(mockupFunctions, {
+    get(target, method: string) {
+      if (!('google' in globalThis) || !google?.script?.run) {
+        return target[method];
+      }
+      if (!(method in google.script.run)) {
+        throw Error(`Method ${method} not found in AppsScript.`);
+      }
+      return (...args: Parameters<T[typeof method]>) =>
+        new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            [method](...args);
+        });
+    },
+  }) as Promised<T>;
 };

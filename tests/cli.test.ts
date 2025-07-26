@@ -44,7 +44,6 @@ describe('parseArgs', () => {
     await parseArgs(command);
     expect(generateTypes).toHaveBeenCalled();
     // 呼び出し時の引数にproject, watch等が含まれる
-    // biome-ignore lint/suspicious/noExplicitAny: mock.calls for test
     const callArg = (generateTypes as any).mock.calls[0][0];
     expect(callArg.project).toBe('/p');
     expect(callArg.watch).toBe(false);

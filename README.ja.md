@@ -1,5 +1,10 @@
 # gasnuki
 
+[![Test Coverage](https://img.shields.io/badge/test%20coverage-94.44%25-brightgreen)](https://github.com/luthpg/gasnuki)
+[![License](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/@ciderjs/gasnuki.svg)](https://www.npmjs.com/package/@ciderjs/gasnuki)
+[![GitHub issues](https://img.shields.io/github/issues/luthpg/gasnuki.svg)](https://github.com/luthpg/gasnuki/issues)
+
 Google Apps Script クライアントサイドAPIの型定義・ユーティリティ
 
 ## 概要
@@ -27,11 +32,22 @@ pnpm add @ciderjs/gasnuki
 npx @ciderjs/gasnuki
 ```
 
+... または、プロジェクトのnpmスクリプトを `package.json` に追加:
+
+```jsonc
+{
+  // others...
+  "scripts": {
+    "gas": "gasnuki"
+  }
+}
+```
+
 デフォルトでは `types` ディレクトリに型定義ファイルが生成されます。
 
 2. 生成されたディレクトリ（デフォルト: `types`）を `tsconfig.json` の `include` に追加してください:
 
-```json
+```jsonc
 {
   "compilerOptions": {
     // ... your options ...
@@ -56,7 +72,7 @@ google.script.run
   .getContent('Sheet1');
 ```
 
-## 提供機能
+## 機能
 
 - Google Apps Script クライアントAPIの型定義
 - サーバーサイド関数の戻り値型をvoidに変換するユーティリティ型
@@ -68,4 +84,4 @@ google.script.run
 
 ## ライセンス
 
-MIT 
+MIT

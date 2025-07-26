@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
-		"build": "vue-tsc -b && vite build",
+		"build": "vite build && rolldown -c && cpx src/server/appsscript.json dist/",
 		"preview": "vite preview"
 	},
 	"dependencies": {
@@ -13,10 +13,16 @@
 		"vue": "^3.5.13"
 	},
 	"devDependencies": {
+		"@types/google-apps-script": "^1.0.99",
 		"@vitejs/plugin-vue": "^5.2.3",
 		"@vue/tsconfig": "^0.7.0",
+		"cpx": "^1.5.0",
+		"rolldown": "1.0.0-beta.29",
+		"rolldown-plugin-remove-export": "^0.1.2",
 		"typescript": "~5.8.3",
 		"vite": "^6.3.5",
+		"vite-plugin-google-apps-script": "^0.3.2",
+		"vite-plugin-singlefile": "^2.3.0",
 		"vue-tsc": "^2.2.8"
 	}
 }
