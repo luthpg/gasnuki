@@ -84,4 +84,4 @@ google.script.run
 
 ## ライセンス
 
-MIT 
+MIT
