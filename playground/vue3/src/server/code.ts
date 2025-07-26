@@ -1,3 +1,7 @@
+export function doGet() {
+  return HtmlService.createTemplateFromFile('index').evaluate();
+}
+
 export function sayHello(name: string) {
   return `Hello, ${name}!`;
 }
