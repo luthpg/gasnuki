@@ -25,7 +25,6 @@ describe('defineConfig', () => {
 describe('loadConfig', () => {
   it('設定ファイルが存在しない場合は空オブジェクトを返す', async () => {
     const { existsSync } = await import('node:fs');
-    // biome-ignore lint/suspicious/noExplicitAny: mock for test
     (existsSync as any).mockReturnValue(false);
     const config = await loadConfig('/project');
     expect(config).toEqual({});
@@ -33,11 +32,9 @@ describe('loadConfig', () => {
 
   it('設定ファイルが存在し正常にロードできる場合', async () => {
     const { existsSync } = await import('node:fs');
-    // biome-ignore lint/suspicious/noExplicitAny: mock for test
     (existsSync as any).mockReturnValueOnce(true);
     const { createJiti } = await import('jiti');
     const importMock = vi.fn(() => Promise.resolve({ outDir: 'types' }));
-    // biome-ignore lint/suspicious/noExplicitAny: mock for test
     (createJiti as any).mockReturnValue({ import: importMock });
     const config = await loadConfig('/project');
     expect(config).toEqual({ outDir: 'types' });
@@ -45,13 +42,11 @@ describe('loadConfig', () => {
 
   it('設定ファイルのロードで例外が発生した場合は空オブジェクト', async () => {
     const { existsSync } = await import('node:fs');
-    // biome-ignore lint/suspicious/noExplicitAny: mock for test
     (existsSync as any).mockReturnValueOnce(true);
     const { createJiti } = await import('jiti');
     const importMock = vi.fn(() => {
       throw new Error('fail');
     });
-    // biome-ignore lint/suspicious/noExplicitAny: mock for test
     (createJiti as any).mockReturnValue({ import: importMock });
     const config = await loadConfig('/project');
     expect(config).toEqual({});

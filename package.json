@@ -26,7 +26,10 @@
     "check": "biome check --write",
     "build": "unbuild",
     "test": "vitest run",
-    "prepare": "pnpm run generate && pnpm run check && pnpm run test && pnpm run build",
+    "test:coverage": "vitest run --coverage",
+    "update-coverage-badge": "jiti scripts/update-coverage-badge.ts README.md README.ja.md",
+    "test:coverage:update": "pnpm test:coverage && pnpm update-coverage-badge",
+    "prepare": "pnpm run generate && pnpm run check && pnpm run test:coverage:update && pnpm run build",
     "pg:react": "pnpm -C playground/react",
     "pg:vue": "pnpm -C playground/vue3"
   },

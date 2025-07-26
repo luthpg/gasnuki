@@ -1,4 +1,9 @@
-# gasnuki
+# @ciderjs/gasnuki
+
+[![Test Coverage](https://img.shields.io/badge/test%20coverage-94.44%25-brightgreen)](https://github.com/luthpg/gasnuki)
+[![License](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/@ciderjs/gasnuki.svg)](https://www.npmjs.com/package/@ciderjs/gasnuki)
+[![GitHub issues](https://img.shields.io/github/issues/luthpg/gasnuki.svg)](https://github.com/luthpg/gasnuki/issues)
 
 Type definitions and utilities for Google Apps Script client-side API
 
@@ -54,6 +59,7 @@ This will generate type definition files in the `types` directory by default.
 ```
 
 3. Then, you can use `google` with Type Definitions.
+
 ```ts
 // Type-safe access to google.script.run
 // Example: Call the server-side function getContent

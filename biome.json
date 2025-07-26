@@ -30,7 +30,7 @@
   },
   "overrides": [
     {
-      "include": ["types/**/*", ".bin/typedef/**/*"],
+      "include": ["types/**/*", ".bin/typedef/**/*", "tests/**/*"],
       "linter": {
         "rules": {
           "suspicious": {
