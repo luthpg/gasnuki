@@ -1,11 +1,14 @@
 /node_modules
 /src
 /tests
+/types
+/scripts
 /coverage
 /playground
 /.github
 /.bin
 *.config.ts
+.gitignore
 tsconfig.json
 biome.json
 pnpm-lock.yaml

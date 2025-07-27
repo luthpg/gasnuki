@@ -113,9 +113,17 @@ export const generateAppsScriptTypes = async ({
 
   for (const sourceFile of sourceFiles) {
     for (const iface of sourceFile.getInterfaces()) {
+      const name = iface?.getName?.();
+      if (name == null || name.endsWith('_')) {
+        continue;
+      }
       globalTypeDefinitions.push(iface.getText());
     }
     for (const typeAlias of sourceFile.getTypeAliases()) {
+      const name = typeAlias?.getName?.();
+      if (name == null || name.endsWith('_')) {
+        continue;
+      }
       globalTypeDefinitions.push(typeAlias.getText());
     }
     for (const statement of sourceFile.getStatements()) {
