@@ -441,4 +441,35 @@ describe('generateAppsScriptTypes', () => {
       ),
     );
   });
+
+  it('アンダースコアで終わるインターフェース名を除外する', async () => {
+    const mockInterface = {
+      getName: () => 'PrivateInterface_',
+      getText: () => 'interface PrivateInterface_ { prop: string; }',
+    } as any;
+    mockSourceFile.getInterfaces.mockReturnValue([mockInterface]);
+
+    const { writeFileSync } = await import('node:fs');
+    await generateAppsScriptTypes(opts);
+
+    const callArgs = (writeFileSync as any).mock.calls[0];
+    // ServerScripts型のみで、PrivateInterface_は含まれない
+    expect(callArgs[1]).toContain('export type ServerScripts = {}');
+    expect(callArgs[1]).not.toContain('PrivateInterface_');
+  });
+
+  it('アンダースコアで終わる型エイリアス名を除外する', async () => {
+    const mockTypeAlias = {
+      getName: () => 'PrivateType_',
+      getText: () => 'type PrivateType_ = string;',
+    } as any;
+    mockSourceFile.getTypeAliases.mockReturnValue([mockTypeAlias]);
+
+    const { writeFileSync } = await import('node:fs');
+    await generateAppsScriptTypes(opts);
+
+    const callArgs = (writeFileSync as any).mock.calls[0];
+    expect(callArgs[1]).toContain('export type ServerScripts = {}');
+    expect(callArgs[1]).not.toContain('PrivateType_');
+  });
 });
