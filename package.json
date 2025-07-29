@@ -21,7 +21,7 @@
   },
   "scripts": {
     "generate": "jiti .bin/generate.ts",
-    "dev": "pnpm prebuild && jiti src/cli.ts -p playground/react -s src/server",
+    "dev": "pnpm run generate && jiti src/cli.ts -p playground/react -s src/server",
     "start": "node dist/cli.mjs -p playground/react -s src/server",
     "check": "biome check --write",
     "build": "unbuild",

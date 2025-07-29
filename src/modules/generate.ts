@@ -5,8 +5,11 @@ import {
   type ArrowFunction,
   type FunctionDeclaration,
   type FunctionExpression,
+  type InterfaceDeclaration,
   Project,
+  type Symbol as SymbolType,
   SyntaxKind,
+  type TypeAliasDeclaration,
   type VariableDeclaration,
 } from 'ts-morph';
 import type { GenerateOptions } from '..';
@@ -52,32 +55,18 @@ const getInterfaceMethodDefinition_ = (
   const jsDocOwner =
     'getJsDocs' in node
       ? node
-      : 'getParantOrThrow' in node &&
+      : 'getParentOrThrow' in node &&
           // @ts-expect-error variable declaration
           node.getParentOrThrow().getKind() === SyntaxKind.VariableDeclaration
         ? // @ts-expect-error variable declaration
           (node.getParentOrThrow() as VariableDeclaration)
         : null;
+
   if (jsDocOwner != null) {
-    const jsDocs = 'getJsDocs' in jsDocOwner ? jsDocOwner.getJsDocs() : null;
-    if (jsDocs != null && jsDocs.length > 0) {
-      const rawConmmentText = jsDocs.map((doc) => doc.getFullText()).join('\n');
-      if (rawConmmentText.includes('@deprecated')) {
-        const deprecatedDoc = jsDocs.find((doc) =>
-          doc.getFullText().includes('@deprecated'),
-        );
-        jsDocString = `${
-          deprecatedDoc != null
-            ? deprecatedDoc.getFullText().trim()
-            : '/**\n * @deprecated\n */'
-        }\n`;
-      } else {
-        const firstDoc = jsDocs[0];
-        const description = firstDoc.getDescription().trim();
-        if (description != null || firstDoc.getTags().length > 0) {
-          jsDocString = `${firstDoc.getFullText().trim()}\n`;
-        }
-      }
+    const jsDocs = 'getJsDocs' in jsDocOwner ? jsDocOwner.getJsDocs() : [];
+    if (jsDocs.length > 0) {
+      const firstDoc = jsDocs[0];
+      jsDocString = `${firstDoc.getFullText().trim()}\n`;
     }
   }
   return `${jsDocString}${name}${typeParamsString}(${parameters}): ${returnType};`;
@@ -115,95 +104,108 @@ export const generateAppsScriptTypes = async ({
     path.join(absoluteSrcDir, '**/*.ts').replace(/\\/g, '/'),
   );
 
-  const methodDefinitions: string[] = [];
-  const globalTypeDefinitions: string[] = [];
-  const importStatements = new Set<string>();
-
   const sourceFiles = project.getSourceFiles();
   consola.info(`Found ${sourceFiles.length} source file(s).`);
 
+  const methodDefinitions: string[] = [];
+  const globalTypeDeclarations: (
+    | InterfaceDeclaration
+    | TypeAliasDeclaration
+  )[] = [];
+  const functionDeclarations: (
+    | FunctionDeclaration
+    | ArrowFunction
+    | FunctionExpression
+  )[] = [];
+
   for (const sourceFile of sourceFiles) {
-    const importDeclarations = sourceFile.getImportDeclarations?.();
-    if (importDeclarations != null && importDeclarations.length > 0) {
-      for (const importDeclaration of importDeclarations) {
-        const moduleSpecifier =
-          importDeclaration.getModuleSpecifierSourceFile();
-        if (moduleSpecifier) {
-          const importedFilePath = moduleSpecifier.getFilePath();
-
-          let relativePath = path
-            .relative(path.dirname(absoluteOutputFile), importedFilePath)
-            .replace(/\\/g, '/');
-
-          relativePath = relativePath.replace(/\.(ts|tsx|d\.ts)$/, '');
-
-          if (!relativePath.startsWith('.') && !relativePath.startsWith('..')) {
-            relativePath = `./${relativePath}`;
-          }
-
-          const originalText = importDeclaration.getText();
-          const newImportText = originalText.replace(
-            importDeclaration.getModuleSpecifierValue(),
-            relativePath,
-          );
-
-          importStatements.add(newImportText);
-        } else {
-          importStatements.add(importDeclaration.getText());
-        }
-      }
-    }
-
     for (const iface of sourceFile.getInterfaces()) {
-      const name = iface?.getName?.();
-      if (name == null || name.endsWith('_')) {
-        continue;
+      const name = iface.getName?.();
+      if (name && !name.endsWith('_')) {
+        globalTypeDeclarations.push(iface);
       }
-      globalTypeDefinitions.push(iface.getText());
     }
     for (const typeAlias of sourceFile.getTypeAliases()) {
-      const name = typeAlias?.getName?.();
-      if (name == null || name.endsWith('_')) {
-        continue;
-      }
-      globalTypeDefinitions.push(typeAlias.getText());
-    }
-    for (const statement of sourceFile.getStatements()) {
-      if (statement.getKind() === SyntaxKind.ModuleDeclaration) {
-        globalTypeDefinitions.push(statement.getText());
+      const name = typeAlias.getName?.();
+      if (name && !name.endsWith('_')) {
+        globalTypeDeclarations.push(typeAlias);
       }
     }
-    for (const funcDecl of sourceFile.getFunctions()) {
-      if (!funcDecl.isAmbient()) {
-        const name = funcDecl.getName();
-        if (
-          name != null &&
-          !name.endsWith('_') &&
-          !SIMPLE_TRIGGER_FUNCTION_NAMES.includes(name)
-        ) {
-          methodDefinitions.push(getInterfaceMethodDefinition_(name, funcDecl));
-        }
+    for (const func of sourceFile.getFunctions()) {
+      const name = func.getName();
+      if (
+        name &&
+        !func.isAmbient() &&
+        !name.endsWith('_') &&
+        !SIMPLE_TRIGGER_FUNCTION_NAMES.includes(name)
+      ) {
+        functionDeclarations.push(func);
+        methodDefinitions.push(getInterfaceMethodDefinition_(name, func));
       }
     }
     for (const varStmt of sourceFile.getVariableStatements()) {
-      if (!varStmt.isAmbient()) {
-        for (const varDecl of varStmt.getDeclarations()) {
-          const initializer = varDecl.getInitializer();
-          const varName = varDecl.getName();
-          if (
-            initializer != null &&
-            (initializer.getKind() === SyntaxKind.ArrowFunction ||
-              initializer.getKind() === SyntaxKind.FunctionExpression) &&
-            !varName.endsWith('_') &&
-            !SIMPLE_TRIGGER_FUNCTION_NAMES.includes(varName)
-          ) {
-            methodDefinitions.push(
-              getInterfaceMethodDefinition_(
-                varName,
-                initializer as ArrowFunction | FunctionExpression,
-              ),
+      if (varStmt.isAmbient()) continue;
+      for (const varDecl of varStmt.getDeclarations()) {
+        const name = varDecl.getName();
+        const initializer = varDecl.getInitializer();
+        if (
+          !name.endsWith('_') &&
+          !SIMPLE_TRIGGER_FUNCTION_NAMES.includes(name) &&
+          initializer &&
+          (initializer.getKind() === SyntaxKind.ArrowFunction ||
+            initializer.getKind() === SyntaxKind.FunctionExpression)
+        ) {
+          const funcExpr = initializer as ArrowFunction | FunctionExpression;
+          functionDeclarations.push(funcExpr);
+          methodDefinitions.push(getInterfaceMethodDefinition_(name, funcExpr));
+        }
+      }
+    }
+  }
+
+  const typeChecker = project.getTypeChecker?.();
+  const usedSymbols = new Set<SymbolType>();
+  const nodesToInspect = [...globalTypeDeclarations, ...functionDeclarations];
+
+  for (const node of nodesToInspect) {
+    node.forEachDescendant?.((descendant) => {
+      if (descendant.getKind() === SyntaxKind.TypeReference) {
+        const symbol = descendant.getType().getSymbol();
+        if (symbol) {
+          usedSymbols.add(symbol.getAliasedSymbol() ?? symbol);
+        }
+      }
+    });
+  }
+
+  const importsMap = new Map<string, Set<string>>();
+
+  for (const sourceFile of sourceFiles) {
+    const importDecls = sourceFile.getImportDeclarations?.() ?? [];
+    for (const importDecl of importDecls) {
+      const namedImports = importDecl.getNamedImports();
+      for (const namedImport of namedImports) {
+        const symbol = namedImport.getNameNode().getSymbolOrThrow();
+        const aliasedSymbol = typeChecker.getAliasedSymbol(symbol) ?? symbol;
+        if (usedSymbols?.has(aliasedSymbol)) {
+          let modulePath = importDecl.getModuleSpecifierValue();
+          if (modulePath.startsWith('.')) {
+            const sourceFilePath = sourceFile.getFilePath();
+            const absoluteModulePath = path.resolve(
+              path.dirname(sourceFilePath),
+              modulePath,
             );
+            modulePath = path
+              .relative(absoluteOutDir, absoluteModulePath)
+              .replace(/\\/g, '/');
+            if (!modulePath.startsWith('.')) {
+              modulePath = `./${modulePath}`;
+            }
           }
+          if (!importsMap.has(modulePath)) {
+            importsMap.set(modulePath, new Set());
+          }
+          importsMap.get(modulePath)?.add(namedImport.getName());
         }
       }
     }
@@ -215,14 +217,25 @@ export const generateAppsScriptTypes = async ({
   }
 
   const generatorName = 'gasnuki';
-  let outputContent = `// Auto-generated by ${generatorName}\n// Do NOT edit this file manually.\n`;
+  let outputContent = `// Auto-generated by ${generatorName}\n// Do NOT edit this file manually.\n\n`;
 
-  if (importStatements.size > 0) {
-    outputContent += `${[...importStatements].join('\n')}\n\n`;
+  const sortedModulePaths = [...importsMap.keys()].sort((a, b) => {
+    const aIsRelative = a.startsWith('.');
+    const bIsRelative = b.startsWith('.');
+    if (aIsRelative !== bIsRelative) return aIsRelative ? 1 : -1;
+    return a.localeCompare(b);
+  });
+
+  if (sortedModulePaths.length > 0) {
+    const importStatements = sortedModulePaths.map((modulePath) => {
+      const imports = [...(importsMap.get(modulePath) ?? [])].sort();
+      return `import type { ${imports.join(', ')} } from "${modulePath}";`;
+    });
+    outputContent += `${importStatements.join('\n')}\n\n`;
   }
 
-  if (globalTypeDefinitions.length > 0) {
-    outputContent += `${globalTypeDefinitions.join('\n\n')}\n\n`;
+  if (globalTypeDeclarations.length > 0) {
+    outputContent += `${globalTypeDeclarations.map((decl) => decl.getText()).join('\n\n')}\n\n`;
   }
 
   if (methodDefinitions.length > 0) {
@@ -236,7 +249,7 @@ export const generateAppsScriptTypes = async ({
       .join('\n\n');
     outputContent += `export type ServerScripts = {\n${formattedMethods}\n}\n`;
     consola.info(
-      `Interface 'ServerScript' type definitions written to ${absoluteOutputFile} (${methodDefinitions.length} function(s), ${globalTypeDefinitions.length} type(s)).`,
+      `Interface 'ServerScript' type definitions written to ${absoluteOutputFile} (${methodDefinitions.length} function(s), ${globalTypeDeclarations.length} type(s)).`,
     );
   } else {
     outputContent += 'export type ServerScripts = {}\n';
