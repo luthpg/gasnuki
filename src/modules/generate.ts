@@ -7,7 +7,7 @@ import {
   type FunctionExpression,
   type InterfaceDeclaration,
   Project,
-  type Symbol as SymbolType,
+  SymbolFlags,
   SyntaxKind,
   type TypeAliasDeclaration,
   type VariableDeclaration,
@@ -100,35 +100,40 @@ export const generateAppsScriptTypes = async ({
     skipAddingFilesFromTsConfig: true,
   });
 
-  project.addSourceFilesAtPaths(
-    path.join(absoluteSrcDir, '**/*.ts').replace(/\\/g, '/'),
-  );
+  const sourceFilesPattern = path
+    .join(absoluteSrcDir, '**/*.ts')
+    .replace(/\\/g, '/');
+  const testFilesPattern = `!${path
+    .join(absoluteSrcDir, '**/*.{test,spec}.ts')
+    .replace(/\\/g, '/')}`;
+  project.addSourceFilesAtPaths([sourceFilesPattern, testFilesPattern]);
 
   const sourceFiles = project.getSourceFiles();
   consola.info(`Found ${sourceFiles.length} source file(s).`);
 
   const methodDefinitions: string[] = [];
-  const globalTypeDeclarations: (
+
+  const localDeclarations: (
+    | FunctionDeclaration
+    | VariableDeclaration
     | InterfaceDeclaration
     | TypeAliasDeclaration
   )[] = [];
-  const functionDeclarations: (
-    | FunctionDeclaration
-    | ArrowFunction
-    | FunctionExpression
-  )[] = [];
+  const localDeclarationNames = new Set<string>();
 
   for (const sourceFile of sourceFiles) {
     for (const iface of sourceFile.getInterfaces()) {
       const name = iface.getName?.();
       if (name && !name.endsWith('_')) {
-        globalTypeDeclarations.push(iface);
+        localDeclarations.push(iface);
+        localDeclarationNames.add(name);
       }
     }
     for (const typeAlias of sourceFile.getTypeAliases()) {
-      const name = typeAlias.getName?.();
+      const name = typeAlias.getName();
       if (name && !name.endsWith('_')) {
-        globalTypeDeclarations.push(typeAlias);
+        localDeclarations.push(typeAlias);
+        localDeclarationNames.add(name);
       }
     }
     for (const func of sourceFile.getFunctions()) {
@@ -139,7 +144,8 @@ export const generateAppsScriptTypes = async ({
         !name.endsWith('_') &&
         !SIMPLE_TRIGGER_FUNCTION_NAMES.includes(name)
       ) {
-        functionDeclarations.push(func);
+        localDeclarations.push(func);
+        localDeclarationNames.add(name);
         methodDefinitions.push(getInterfaceMethodDefinition_(name, func));
       }
     }
@@ -155,57 +161,68 @@ export const generateAppsScriptTypes = async ({
           (initializer.getKind() === SyntaxKind.ArrowFunction ||
             initializer.getKind() === SyntaxKind.FunctionExpression)
         ) {
-          const funcExpr = initializer as ArrowFunction | FunctionExpression;
-          functionDeclarations.push(funcExpr);
-          methodDefinitions.push(getInterfaceMethodDefinition_(name, funcExpr));
+          localDeclarations.push(varDecl);
+          localDeclarationNames.add(name);
+          methodDefinitions.push(
+            getInterfaceMethodDefinition_(
+              name,
+              initializer as ArrowFunction | FunctionExpression,
+            ),
+          );
         }
       }
     }
   }
 
-  const typeChecker = project.getTypeChecker?.();
-  const usedSymbols = new Set<SymbolType>();
-  const nodesToInspect = [...globalTypeDeclarations, ...functionDeclarations];
-
-  for (const node of nodesToInspect) {
-    node.forEachDescendant?.((descendant) => {
-      if (descendant.getKind() === SyntaxKind.TypeReference) {
-        const symbol = descendant.getType().getSymbol();
-        if (symbol) {
-          usedSymbols.add(symbol.getAliasedSymbol() ?? symbol);
-        }
-      }
-    });
-  }
-
   const importsMap = new Map<string, Set<string>>();
 
-  for (const sourceFile of sourceFiles) {
-    const importDecls = sourceFile.getImportDeclarations?.() ?? [];
-    for (const importDecl of importDecls) {
-      const namedImports = importDecl.getNamedImports();
-      for (const namedImport of namedImports) {
-        const symbol = namedImport.getNameNode().getSymbolOrThrow();
-        const aliasedSymbol = typeChecker.getAliasedSymbol(symbol) ?? symbol;
-        if (usedSymbols?.has(aliasedSymbol)) {
-          let modulePath = importDecl.getModuleSpecifierValue();
-          if (modulePath.startsWith('.')) {
-            const sourceFilePath = sourceFile.getFilePath();
-            const absoluteModulePath = path.resolve(
-              path.dirname(sourceFilePath),
-              modulePath,
-            );
-            modulePath = path
-              .relative(absoluteOutDir, absoluteModulePath)
-              .replace(/\\/g, '/');
-            if (!modulePath.startsWith('.')) {
-              modulePath = `./${modulePath}`;
-            }
+  for (const decl of localDeclarations) {
+    const descendants =
+      decl.getDescendantsOfKind?.(SyntaxKind.TypeReference) ?? [];
+    for (const descendant of descendants) {
+      const symbol =
+        descendant.getType().getAliasSymbol() ??
+        descendant.getType().getSymbol();
+
+      if (symbol) {
+        const symbolFlags = symbol.getFlags();
+        // ジェネリック型パラメータ (Tなど) は除外
+        if (symbolFlags & SymbolFlags.TypeParameter) {
+          continue;
+        }
+
+        const symbolName = symbol.getName();
+        // ローカル定義の型とTypeScript内部の一時的な型 '__type' は除外
+        if (localDeclarationNames.has(symbolName) || symbolName === '__type') {
+          continue;
+        }
+
+        const declaration = symbol.getDeclarations()[0];
+        if (declaration) {
+          // インポート元が export 宣言されていることを確認
+          const declarationSourceFile = declaration.getSourceFile();
+          if (declarationSourceFile.getFilePath().includes('node_modules')) {
+            continue;
+          }
+
+          let modulePath = path
+            .relative(absoluteOutDir, declarationSourceFile.getFilePath())
+            .replace(/\\/g, '/');
+
+          modulePath = modulePath.replace(/\.(d\.)?ts$/, '');
+          if (modulePath.endsWith('/index')) {
+            modulePath = modulePath.slice(0, -6);
+          }
+          if (modulePath === 'index' || modulePath === '') {
+            modulePath = '.';
+          }
+          if (!modulePath.startsWith('.')) {
+            modulePath = `./${modulePath}`;
           }
           if (!importsMap.has(modulePath)) {
             importsMap.set(modulePath, new Set());
           }
-          importsMap.get(modulePath)?.add(namedImport.getName());
+          importsMap.get(modulePath)?.add(symbolName);
         }
       }
     }
@@ -229,13 +246,22 @@ export const generateAppsScriptTypes = async ({
   if (sortedModulePaths.length > 0) {
     const importStatements = sortedModulePaths.map((modulePath) => {
       const imports = [...(importsMap.get(modulePath) ?? [])].sort();
-      return `import type { ${imports.join(', ')} } from "${modulePath}";`;
+      const finalModulePath = modulePath === '.' ? './index' : modulePath;
+      return `import type { ${imports.join(', ')} } from '${finalModulePath}';`;
     });
     outputContent += `${importStatements.join('\n')}\n\n`;
   }
 
-  if (globalTypeDeclarations.length > 0) {
-    outputContent += `${globalTypeDeclarations.map((decl) => decl.getText()).join('\n\n')}\n\n`;
+  const globalTypeDefinitions = localDeclarations
+    .filter(
+      (d) =>
+        d.getKind?.() === SyntaxKind.InterfaceDeclaration ||
+        d.getKind?.() === SyntaxKind.TypeAliasDeclaration,
+    )
+    .map((decl) => decl.getText?.());
+
+  if (globalTypeDefinitions.length > 0) {
+    outputContent += `${globalTypeDefinitions.join('\n\n')}\n\n`;
   }
 
   if (methodDefinitions.length > 0) {
@@ -249,7 +275,7 @@ export const generateAppsScriptTypes = async ({
       .join('\n\n');
     outputContent += `export type ServerScripts = {\n${formattedMethods}\n}\n`;
     consola.info(
-      `Interface 'ServerScript' type definitions written to ${absoluteOutputFile} (${methodDefinitions.length} function(s), ${globalTypeDeclarations.length} type(s)).`,
+      `Interface 'ServerScript' type definitions written to ${absoluteOutputFile} (${methodDefinitions.length} function(s), ${globalTypeDefinitions.length} type(s)).`,
     );
   } else {
     outputContent += 'export type ServerScripts = {}\n';
