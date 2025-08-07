@@ -1,0 +1,48 @@
+name: Check Package Version on the first day of the month
+
+on:
+  schedule:
+    - cron: "0 0 1 * *"
+
+jobs:
+  check:
+    name: Check npm packages version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+    
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - uses: pnpm/action-setup@v2.2.2
+        with:
+          version: 10.x
+    
+      - name: Check if there is outdated packages and set an environment variable
+        id: outdated-check
+        run: |
+          if [ "$(pnpm outdated --json || echo '{}')" != "{}" ]; then
+            echo "Outdated packages found."
+            echo "outdated=true" >> $GITHUB_OUTPUT
+          else
+            echo "No outdated packages."
+            echo "outdated=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub issue body as a markdown file
+        if: ${{ steps.outdated-check.outputs.outdated }} == 'true'
+        run: |
+          echo "| Package | Current Version | Latest Version |" > issue_body.md
+          echo "|---------|-----------------|----------------|" >> issue_body.md
+          npm outdated --json || echo "{}" | jq -r '. | to_entries | .[] | "| \(.key) | \(.value.current) | \(.value.latest) |"' >> issue_body.md
+
+      - name: Create GitHub issue
+        if: ${{ steps.outdated-check.outputs.outdated }} == 'true'
+        uses: peter-evans/create-issue-from-file@v4
+        with:
+          title: "新しいバージョンのパッケージに更新してください"
+          content-filepath: ./issue_body.md
