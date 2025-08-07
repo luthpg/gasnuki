@@ -1,8 +1,11 @@
-name: Check Package Version on the first day of the month
+name: Check Package Version on every monday and pushing on main branch
 
 on:
   schedule:
-    - cron: "0 0 1 * *"
+    - cron: "0 0 * * 1"
+  push:
+    branches:
+      - main
 
 jobs:
   check:
