@@ -1,6 +1,6 @@
 {
   "name": "@ciderjs/gasnuki",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Type definitions and utilities for Google Apps Script client-side API",
   "main": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -45,7 +45,6 @@
   },
   "packageManager": "pnpm@10.11.1",
   "dependencies": {
-    "@inquirer/prompts": "^7.5.3",
     "chokidar": "^4.0.3",
     "commander": "^14.0.0",
     "consola": "^3.4.2",

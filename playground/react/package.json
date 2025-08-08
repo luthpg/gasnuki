@@ -8,7 +8,8 @@
 		"build": "vite build && rolldown -c && cpx src/server/appsscript.json dist/",
 		"lint": "eslint .",
 		"preview": "vite preview",
-		"push": "clasp push -f"
+		"push": "clasp push -f",
+		"generate": "gasnuki"
 	},
 	"dependencies": {
 		"@ciderjs/gasnuki": "../..",
