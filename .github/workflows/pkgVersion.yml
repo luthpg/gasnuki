@@ -10,6 +10,9 @@ on:
 jobs:
   check:
     name: Check npm packages version
+    permissions:
+      contents: read
+      issues: write
     runs-on: ubuntu-latest
     strategy:
       matrix:
