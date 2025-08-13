@@ -212,23 +212,65 @@ export const generateAppsScriptTypes = async ({
     collectSymbolsFromType(func.getReturnType(), returnValueSymbols);
   }
 
-  const importsMap = new Map<string, Set<string>>();
-  const inlineDefinitions = new Map<string, string>();
   const symbolsToProcess = new Set<import('ts-morph').Symbol>();
-  const processedSymbols = new Set<string>();
 
+  // Collect dependencies from function signatures and exported types
   for (const decl of exportedDeclarations) {
-    for (const descendant of decl.getDescendantsOfKind(
-      SyntaxKind.TypeReference,
-    )) {
-      const symbol =
-        descendant.getType().getAliasSymbol() ??
-        descendant.getType().getSymbol();
-      if (symbol) {
-        symbolsToProcess.add(symbol);
+    // For functions, only scan parameters and return type nodes
+    if (
+      decl.getKind() === SyntaxKind.FunctionDeclaration ||
+      (decl.getKind() === SyntaxKind.VariableDeclaration &&
+        ((decl as VariableDeclaration).getInitializer()?.getKind() ===
+          SyntaxKind.ArrowFunction ||
+          (decl as VariableDeclaration).getInitializer()?.getKind() ===
+            SyntaxKind.FunctionExpression))
+    ) {
+      const func =
+        decl.getKind() === SyntaxKind.FunctionDeclaration
+          ? (decl as FunctionDeclaration)
+          : ((decl as VariableDeclaration).getInitializer() as
+              | ArrowFunction
+              | FunctionExpression);
+
+      const parameters = func.getParameters();
+      for (const param of parameters) {
+        const typeRefs = param.getDescendantsOfKind(SyntaxKind.TypeReference);
+        for (const typeRef of typeRefs) {
+          const symbol =
+            typeRef.getType().getAliasSymbol() ?? typeRef.getType().getSymbol();
+          if (symbol) symbolsToProcess.add(symbol);
+        }
+      }
+
+      const returnTypeNode = func.getReturnTypeNode();
+      if (returnTypeNode) {
+        const typeRefs = returnTypeNode.getDescendantsOfKind(
+          SyntaxKind.TypeReference,
+        );
+        for (const typeRef of typeRefs) {
+          const symbol =
+            typeRef.getType().getAliasSymbol() ?? typeRef.getType().getSymbol();
+          if (symbol) symbolsToProcess.add(symbol);
+        }
+      }
+    }
+    // For interfaces and type aliases, scan the whole declaration
+    else if (
+      decl.getKind() === SyntaxKind.InterfaceDeclaration ||
+      decl.getKind() === SyntaxKind.TypeAliasDeclaration
+    ) {
+      const typeRefs = decl.getDescendantsOfKind(SyntaxKind.TypeReference);
+      for (const typeRef of typeRefs) {
+        const symbol =
+          typeRef.getType().getAliasSymbol() ?? typeRef.getType().getSymbol();
+        if (symbol) symbolsToProcess.add(symbol);
       }
     }
   }
+
+  const importsMap = new Map<string, Set<string>>();
+  const inlineDefinitions = new Map<string, string>();
+  const processedSymbols = new Set<string>();
 
   while (symbolsToProcess.size > 0) {
     const symbol = symbolsToProcess.values().next().value;
