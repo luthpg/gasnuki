@@ -1,10 +1,5 @@
-import {
-  Project,
-  type ProjectOptions,
-  SymbolFlags,
-  SyntaxKind,
-} from 'ts-morph';
-import { type Mock, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Project, type ProjectOptions } from 'ts-morph';
+import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import { generateAppsScriptTypes } from '../../src/modules/generate';
 
 // fs, consolaは引き続きモックする
@@ -19,7 +14,7 @@ vi.mock('consola', () => ({ consola: { info: vi.fn(), error: vi.fn() } }));
 vi.mock('node:path', () => vi.importActual('node:path'));
 
 // ts-morph の Project のコンストラクタのみモックし、他は実際の機能を利用する
-const mockProject = new Project({ useInMemoryFileSystem: true });
+const _mockProject = new Project({ useInMemoryFileSystem: true });
 vi.mock('ts-morph', async (importOriginal) => {
   const original = await importOriginal<typeof import('ts-morph')>();
   return {

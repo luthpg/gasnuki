@@ -37,10 +37,7 @@ export declare interface GoogleClientSideApi {
       push: _AppsScriptHistoryFunction;
       replace: _AppsScriptHistoryFunction;
       setChangeHandler: (
-        callback: (e: {
-          state: object;
-          location: _WebAppLocationType;
-        }) => void,
+        callback: (e: { state: object; location: _WebAppLocationType }) => void,
       ) => void;
     };
   };
