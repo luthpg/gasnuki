@@ -1,6 +1,6 @@
 {
   "name": "@ciderjs/gasnuki",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "Type definitions and utilities for Google Apps Script client-side API",
   "main": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -29,7 +29,6 @@
     "test:coverage": "vitest run --coverage",
     "update-coverage-badge": "jiti scripts/update-coverage-badge.ts README.md README.ja.md",
     "test:coverage:update": "pnpm test:coverage && pnpm update-coverage-badge",
-    "postinstall": "pnpm run generate",
     "prepublish": "pnpm run generate && pnpm run check && pnpm run test:coverage:update && pnpm run build",
     "pg:react": "pnpm -C playground/react",
     "pg:vue": "pnpm -C playground/vue3"
