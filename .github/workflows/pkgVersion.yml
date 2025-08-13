@@ -48,7 +48,7 @@ jobs:
         run: |
           echo "| Package | Current Version | Latest Version |" > issue_body.md
           echo "|---------|-----------------|----------------|" >> issue_body.md
-          npm outdated --json || echo "{}" | jq -r '. | to_entries | .[] | "| \(.key) | \(.value.current) | \(.value.latest) |"' >> issue_body.md
+          pnpm outdated --json || echo "{}" | jq -r '. | to_entries | .[] | "| \(.key) | \(.value.current) | \(.value.latest) |"' >> issue_body.md
 
       - name: Create GitHub issue
         if: ${{ steps.outdated-check.outputs.outdated }} == 'true'

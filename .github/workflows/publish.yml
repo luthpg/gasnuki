@@ -37,10 +37,7 @@ jobs:
       - name: Install dependencies 🧹
         run: pnpm i
 
-      - name: Build 🔨
-        run: pnpm run prepare
-
-      - name: Publish 🎁
+      - name: Build & Publish 🔨🎁
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

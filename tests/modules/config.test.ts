@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  type UserConfig,
-  defineConfig,
-  loadConfig,
-} from '../../src/modules/config';
+import { defineConfig, loadConfig } from '../../src/modules/config';
 
 // fs, jiti, consolaのモック
 vi.mock('node:fs', () => ({ existsSync: vi.fn(() => false) }));

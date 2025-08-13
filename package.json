@@ -29,11 +29,16 @@
     "test:coverage": "vitest run --coverage",
     "update-coverage-badge": "jiti scripts/update-coverage-badge.ts README.md README.ja.md",
     "test:coverage:update": "pnpm test:coverage && pnpm update-coverage-badge",
-    "prepare": "pnpm run generate && pnpm run check && pnpm run test:coverage:update && pnpm run build",
+    "postinstall": "pnpm run generate",
+    "prepublish": "pnpm run generate && pnpm run check && pnpm run test:coverage:update && pnpm run build",
     "pg:react": "pnpm -C playground/react",
     "pg:vue": "pnpm -C playground/vue3"
   },
-  "keywords": ["google-apps-script", "typescript", "@google/clasp"],
+  "keywords": [
+    "google-apps-script",
+    "typescript",
+    "@google/clasp"
+  ],
   "author": "ciderjs/luth",
   "license": "ISC",
   "repository": {
@@ -48,15 +53,15 @@
     "chokidar": "^4.0.3",
     "commander": "^14.0.0",
     "consola": "^3.4.2",
-    "jiti": "^2.4.2",
+    "jiti": "^2.5.1",
     "ts-morph": "^26.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.4",
-    "@types/node": "^22.15.29",
-    "@vitest/coverage-v8": "3.2.1",
-    "typescript": "^5.8.3",
-    "unbuild": "^3.5.0",
-    "vitest": "^3.2.1"
+    "@biomejs/biome": "^2.1.4",
+    "@types/node": "^24.2.1",
+    "@vitest/coverage-v8": "3.2.4",
+    "typescript": "^5.9.2",
+    "unbuild": "^3.6.0",
+    "vitest": "3.2.4"
   }
 }

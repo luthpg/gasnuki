@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getPromisedServerScripts } from '../src/promise';
 import type { PartialScriptType, Promised } from '../src/promise';
+import { getPromisedServerScripts } from '../src/promise';
 
 describe('getPromisedServerScripts', () => {
   let originalGoogle: any;
@@ -36,8 +36,6 @@ describe('getPromisedServerScripts', () => {
   });
 
   it('google.script.runが存在し、メソッドが存在する場合はPromiseを返す', async () => {
-    const mockSuccessHandler = vi.fn();
-    const mockFailureHandler = vi.fn();
     const mockMethod = vi.fn();
 
     // google.script.runのモックを作成
@@ -85,8 +83,6 @@ describe('getPromisedServerScripts', () => {
   });
 
   it('Promiseが成功した場合はresolveされる', async () => {
-    const mockSuccessHandler = vi.fn();
-    const mockFailureHandler = vi.fn();
     const mockMethod = vi.fn();
 
     // google.script.runのモックを作成
@@ -106,15 +102,13 @@ describe('getPromisedServerScripts', () => {
     const result = getPromisedServerScripts();
 
     // 成功ハンドラーが呼ばれたときにPromiseがresolveされることを確認
-    const promise = result.testMethod('success');
+    const _promise = result.testMethod('success');
 
     // モックの実装を確認
     expect(mockMethod).toHaveBeenCalledWith('success');
   });
 
   it('Promiseが失敗した場合はrejectされる', async () => {
-    const mockSuccessHandler = vi.fn();
-    const mockFailureHandler = vi.fn();
     const mockMethod = vi.fn();
 
     // google.script.runのモックを作成
@@ -134,7 +128,7 @@ describe('getPromisedServerScripts', () => {
     const result = getPromisedServerScripts();
 
     // 失敗ハンドラーが呼ばれたときにPromiseがrejectされることを確認
-    const promise = result.testMethod('failure');
+    const _promise = result.testMethod('failure');
 
     // モックの実装を確認
     expect(mockMethod).toHaveBeenCalledWith('failure');
@@ -311,8 +305,8 @@ describe('getPromisedServerScripts', () => {
     type PP = PartialScriptType<T>;
 
     // 型エラーが出ないことを確認（型テスト）
-    const p: P = { foo: async (a) => 'x', bar: async () => 1 };
-    const pp: PP = { foo: async (a) => 'x' };
+    const p: P = { foo: async (_a) => 'x', bar: async () => 1 };
+    const pp: PP = { foo: async (_a) => 'x' };
 
     expect(p).toBeDefined();
     expect(pp).toBeDefined();
@@ -330,9 +324,9 @@ describe('getPromisedServerScripts', () => {
 
     // 型エラーが出ないことを確認
     const result: PromisedComplex = {
-      method1: async (a, b) => true,
+      method1: async (_a, _b) => true,
       method2: async () => 'test',
-      method3: async (x) => 42,
+      method3: async (_x) => 42,
       property: 'test', // 関数ではないプロパティはそのまま
     };
 

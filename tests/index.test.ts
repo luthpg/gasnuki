@@ -104,7 +104,7 @@ describe('generateTypes', () => {
 
     try {
       await generateTypes({ ...baseOptions, watch: true });
-    } catch (e) {
+    } catch {
       // process.exitが呼ばれることを期待
     }
 
@@ -137,7 +137,7 @@ describe('generateTypes', () => {
 
     try {
       await generateTypes({ ...baseOptions, watch: false });
-    } catch (e) {
+    } catch {
       // process.exitが呼ばれることを期待
     }
 
@@ -162,7 +162,7 @@ describe('generateTypes', () => {
 
     try {
       await generateTypes({ ...baseOptions, watch: true });
-    } catch (e) {
+    } catch {
       // process.exitが呼ばれることを期待
     }
 
@@ -185,7 +185,7 @@ describe('generateTypes', () => {
 
     try {
       await generateTypes({ ...baseOptions, watch: false });
-    } catch (e) {
+    } catch {
       // process.exitが呼ばれることを期待
     }
 
@@ -207,7 +207,7 @@ describe('generateTypes', () => {
 
     try {
       await generateTypes({ ...baseOptions, watch: true });
-    } catch (e) {
+    } catch {
       // process.exitが呼ばれることを期待
     }
 
