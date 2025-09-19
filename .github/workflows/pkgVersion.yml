@@ -40,33 +40,13 @@ jobs:
         id: outdated-check
         shell: bash
         run: |
-          echo "--- Running 'pnpm outdated -r' for debugging ---"
-          pnpm outdated -r || true
-          echo "-----------------------------------------------"
+          # pnpm outdated exits with a non-zero code if outdated packages are found.
+          # We redirect output to a file and use `|| true` to prevent the step from failing.
+          pnpm outdated --format json -r >> outdated.json || true
 
-          echo "--- Running 'pnpm outdated --format json -r' for debugging ---"
-          pnpm outdated --format json -r || true
-          echo "-----------------------------------------------"
-
-          echo "--- Running 'cat outdated.json' for debugging ---"
-          pnpm outdated --format json -r > outdated.json
-          cat outdated.json
-          echo "-----------------------------------------------"
-
-          echo "--- Capturing output of 'pnpm outdated --format json -r' ---"
-          pnpm outdated --format json -r > outdated.json 2> stderr.log
-          exit_code=$?
-
-          echo "Exit Code: $exit_code"
-          echo "--- Stderr from pnpm outdated ---"
-          cat stderr.log
-          echo "-----------------------------------"
-          echo "--- Stdout (outdated.json) ---"
-          cat outdated.json
-          echo "--------------------------------"
-
-          # jq を使ってJSONファイルが空でないことを確認
-          if [ $exit_code -eq 0 ] && jq -e 'keys | length > 0' outdated.json > /dev/null; then
+          # We check if the json file has any top-level keys.
+          # If it does, it means there are outdated packages.
+          if jq -e 'keys | length > 0' outdated.json > /dev/null; then
             echo "Outdated packages found."
             echo "outdated=true" >> $GITHUB_OUTPUT
           else
@@ -77,9 +57,9 @@ jobs:
       - name: Create GitHub issue body from file
         if: steps.outdated-check.outputs.outdated == 'true'
         run: |
-          echo "| Package | Current Version | Latest Version |" > issue_body.md
-          echo "|---------|-----------------|----------------|" >> issue_body.md
-          cat outdated.json | jq -r 'to_entries | .[] | "| \(.key) | \(.value.current) | \(.value.latest) |"' >> issue_body.md
+          echo "| Package | Current Version | Latest Version | Location |" > issue_body.md
+          echo "|---------|-----------------|----------------|----------|" >> issue_body.md
+          cat outdated.json | jq -r 'to_entries | .[] | "| \(.key) | \(.value.current) | \(.value.latest) | \(.value.location) |"' >> issue_body.md
 
       - name: Create GitHub issue
         if: steps.outdated-check.outputs.outdated == 'true'
