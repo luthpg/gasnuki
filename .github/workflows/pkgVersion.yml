@@ -48,6 +48,11 @@ jobs:
           pnpm outdated --format json -r || true
           echo "-----------------------------------------------"
 
+          echo "--- Running 'cat outdated.json' for debugging ---"
+          pnpm outdated --format json -r > outdated.json
+          cat outdated.json
+          echo "-----------------------------------------------"
+
           echo "--- Capturing output of 'pnpm outdated --format json -r' ---"
           pnpm outdated --format json -r > outdated.json 2> stderr.log
           exit_code=$?
