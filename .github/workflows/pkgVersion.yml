@@ -44,21 +44,20 @@ jobs:
           pnpm outdated -r || true
           echo "-----------------------------------------------"
 
-          # pnpm outdated --json -r を実行し、成功した場合のみ出力をファイルに保存
-          if output=$(pnpm outdated --json -r); then
-            echo "${output}" > outdated.json
-          else
-            # 失敗した場合は空のJSONを保存
-            echo "Failed to run pnpm outdated --json -r"
-            echo "{}" > outdated.json
-          fi
-          
-          echo "--- Content of outdated.json ---"
+          echo "--- Capturing output of 'pnpm outdated --json -r' ---"
+          pnpm outdated --json -r > outdated.json 2> stderr.log
+          exit_code=$?
+
+          echo "Exit Code: $exit_code"
+          echo "--- Stderr from pnpm outdated ---"
+          cat stderr.log
+          echo "-----------------------------------"
+          echo "--- Stdout (outdated.json) ---"
           cat outdated.json
           echo "--------------------------------"
 
           # jq を使ってJSONファイルが空でないことを確認
-          if jq -e 'keys | length > 0' outdated.json > /dev/null; then
+          if [ $exit_code -eq 0 ] && jq -e 'keys | length > 0' outdated.json > /dev/null; then
             echo "Outdated packages found."
             echo "outdated=true" >> $GITHUB_OUTPUT
           else
