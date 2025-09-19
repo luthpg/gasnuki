@@ -1,6 +1,6 @@
 # @ciderjs/gasnuki
 
-[![Test Coverage](https://img.shields.io/badge/test%20coverage-79.24%25-yellowgreen)](https://github.com/luthpg/gasnuki)
+[![Test Coverage](https://img.shields.io/badge/test%20coverage-81.52%25-green)](https://github.com/luthpg/gasnuki)
 [![License](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/@ciderjs/gasnuki.svg)](https://www.npmjs.com/package/@ciderjs/gasnuki)
 [![GitHub issues](https://img.shields.io/github/issues/luthpg/gasnuki.svg)](https://github.com/luthpg/gasnuki/issues)

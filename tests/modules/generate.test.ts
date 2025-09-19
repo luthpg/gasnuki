@@ -429,4 +429,95 @@ describe('generateAppsScriptTypes', () => {
       'processIntersection(data: Intersection): Intersection;',
     );
   });
+
+  it('SIMPLE_TRIGGER_FUNCTION_NAMESに含まれる関数を除外すること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      '/project/src/triggers.ts',
+      `
+      export function onOpen(e) {}
+      export function doGet(e) {}
+      export function normalFunction() {}
+      `,
+    );
+    (Project as Mock).mockReturnValue(project);
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes(opts);
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    expect(writtenContent).not.toContain('onOpen');
+    expect(writtenContent).not.toContain('doGet');
+    expect(writtenContent).toContain('normalFunction');
+  });
+
+  it('JSDocコメントが正しく出力されること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      '/project/src/with-jsdoc.ts',
+      `
+      /**
+       * This is a test function.
+       * @param name The name to greet.
+       * @returns A greeting message.
+       */
+      export function greet(name: string): string { return \`Hello, \${name}\`; }
+      `,
+    );
+    (Project as Mock).mockReturnValue(project);
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes(opts);
+
+    const writtenContent = (writeFileSync as Mock).mock.calls.at(-1)[1];
+    const cleanedContent = writtenContent.replace(/\s+/g, ' ');
+
+    expect(cleanedContent).toContain('/** * This is a test function. * @param name The name to greet. * @returns A greeting message. */ greet(name: string): string;');
+  });
+
+  it('clientside.jsonの内容が出力に含まれること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      '/project/src/main.ts',
+      'export function noop() {}',
+    );
+    (Project as Mock).mockReturnValue(project);
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes(opts);
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+    expect(writtenContent).toContain('// clientside types');
+  });
+
+  it('オプショナルな引数が正しく処理されること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      '/project/src/optional.ts',
+      'export function optionalParam(name?: string): void {}',
+    );
+    (Project as Mock).mockReturnValue(project);
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes(opts);
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+    expect(writtenContent).toContain('optionalParam(name?: string): void;');
+  });
+
+  it('暗黙的なvoidの返り値が正しく処理されること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      '/project/src/implicit-void.ts',
+      'export function implicitVoid() {}',
+    );
+    (Project as Mock).mockReturnValue(project);
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes(opts);
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+    expect(writtenContent).toContain('implicitVoid(): void;');
+  });
 });

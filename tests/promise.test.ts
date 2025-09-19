@@ -83,16 +83,19 @@ describe('getPromisedServerScripts', () => {
   });
 
   it('Promiseが成功した場合はresolveされる', async () => {
+    let successHandler: (value: any) => void;
     const mockMethod = vi.fn();
 
-    // google.script.runのモックを作成
     (globalThis as any).google = {
       script: {
         run: {
-          withSuccessHandler: vi.fn().mockReturnValue({
-            withFailureHandler: vi.fn().mockReturnValue({
-              testMethod: mockMethod,
-            }),
+          withSuccessHandler: vi.fn((handler) => {
+            successHandler = handler;
+            return {
+              withFailureHandler: vi.fn(() => ({
+                testMethod: mockMethod,
+              })),
+            };
           }),
           testMethod: mockMethod,
         },
@@ -100,24 +103,26 @@ describe('getPromisedServerScripts', () => {
     };
 
     const result = getPromisedServerScripts();
+    const promise = result.testMethod('success');
 
-    // 成功ハンドラーが呼ばれたときにPromiseがresolveされることを確認
-    const _promise = result.testMethod('success');
+    // 成功ハンドラを模擬的に呼び出す
+    successHandler('resolved value');
 
-    // モックの実装を確認
+    await expect(promise).resolves.toBe('resolved value');
     expect(mockMethod).toHaveBeenCalledWith('success');
   });
 
   it('Promiseが失敗した場合はrejectされる', async () => {
+    let failureHandler: (error: any) => void;
     const mockMethod = vi.fn();
 
-    // google.script.runのモックを作成
     (globalThis as any).google = {
       script: {
         run: {
           withSuccessHandler: vi.fn().mockReturnValue({
-            withFailureHandler: vi.fn().mockReturnValue({
-              testMethod: mockMethod,
+            withFailureHandler: vi.fn((handler) => {
+              failureHandler = handler;
+              return { testMethod: mockMethod };
             }),
           }),
           testMethod: mockMethod,
@@ -126,11 +131,13 @@ describe('getPromisedServerScripts', () => {
     };
 
     const result = getPromisedServerScripts();
+    const promise = result.testMethod('failure');
 
-    // 失敗ハンドラーが呼ばれたときにPromiseがrejectされることを確認
-    const _promise = result.testMethod('failure');
+    // 失敗ハンドラを模擬的に呼び出す
+    const error = new Error('rejected');
+    failureHandler(error);
 
-    // モックの実装を確認
+    await expect(promise).rejects.toThrow('rejected');
     expect(mockMethod).toHaveBeenCalledWith('failure');
   });
 
