@@ -40,6 +40,10 @@ jobs:
         id: outdated-check
         shell: bash
         run: |
+          echo "--- Running 'pnpm outdated' for debugging ---"
+          pnpm outdated || true
+          echo "-------------------------------------------"
+
           # pnpm outdated --json を実行し、成功した場合のみ出力をファイルに保存
           if output=$(pnpm outdated --json); then
             echo "${output}" > outdated.json
@@ -48,6 +52,10 @@ jobs:
             echo "{}" > outdated.json
           fi
           
+          echo "--- Content of outdated.json ---"
+          cat outdated.json
+          echo "--------------------------------"
+
           # jq を使ってJSONファイルが空でないことを確認
           if jq -e 'keys | length > 0' outdated.json > /dev/null; then
             echo "Outdated packages found."
