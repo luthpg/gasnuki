@@ -40,15 +40,16 @@ jobs:
         id: outdated-check
         shell: bash
         run: |
-          echo "--- Running 'pnpm outdated' for debugging ---"
-          pnpm outdated || true
-          echo "-------------------------------------------"
+          echo "--- Running 'pnpm outdated -r' for debugging ---"
+          pnpm outdated -r || true
+          echo "-----------------------------------------------"
 
-          # pnpm outdated --json を実行し、成功した場合のみ出力をファイルに保存
-          if output=$(pnpm outdated --json); then
+          # pnpm outdated --json -r を実行し、成功した場合のみ出力をファイルに保存
+          if output=$(pnpm outdated --json -r); then
             echo "${output}" > outdated.json
           else
             # 失敗した場合は空のJSONを保存
+            echo "Failed to run pnpm outdated --json -r"
             echo "{}" > outdated.json
           fi
           
