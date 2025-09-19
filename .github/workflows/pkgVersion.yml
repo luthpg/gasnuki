@@ -42,7 +42,7 @@ jobs:
         run: |
           # pnpm outdated exits with a non-zero code if outdated packages are found.
           # We redirect output to a file and use `|| true` to prevent the step from failing.
-          pnpm outdated --format json -r >> outdated.json || true
+          pnpm outdated --format json >> outdated.json || true
 
           # We check if the json file has any top-level keys.
           # If it does, it means there are outdated packages.
@@ -57,9 +57,9 @@ jobs:
       - name: Create GitHub issue body from file
         if: steps.outdated-check.outputs.outdated == 'true'
         run: |
-          echo "| Package | Current Version | Latest Version | Location |" > issue_body.md
-          echo "|---------|-----------------|----------------|----------|" >> issue_body.md
-          cat outdated.json | jq -r 'to_entries | .[] | "| \(.key) | \(.value.current) | \(.value.latest) | \(.value.location) |"' >> issue_body.md
+          echo "| Package | Current Version | Latest Version | Location | isDeprecated |" > issue_body.md
+          echo "|---------|-----------------|----------------|----------|--------------|" >> issue_body.md
+          cat outdated.json | jq -r 'to_entries | .[] | "| \(.key) | \(.value.current) | \(.value.latest) | \(.value.dependencyType) | \(.value.isDeprecated) |"' >> issue_body.md
 
       - name: Create GitHub issue
         if: steps.outdated-check.outputs.outdated == 'true'

@@ -181,13 +181,26 @@ describe('cli', () => {
     await expect(cli()).resolves.not.toThrow();
   });
 
-  // CLIの詳細なテストは複雑なモックが必要なため、基本的な動作のみをテスト
-  it('CLIが正常に実行される', async () => {
+  it('CLIが正常に実行され、各メソッドが呼ばれる', async () => {
     const { Command } = await import('commander');
+    const mockInstance = {
+      name: vi.fn().mockReturnThis(),
+      description: vi.fn().mockReturnThis(),
+      version: vi.fn().mockReturnThis(),
+      action: vi.fn().mockReturnThis(),
+      option: vi.fn().mockReturnThis(),
+      parseAsync: vi.fn().mockResolvedValue(undefined),
+    };
+    (Command as any).mockReturnValue(mockInstance);
 
     await cli();
 
-    // Commandが作成されることを確認
     expect(Command).toHaveBeenCalled();
+    expect(mockInstance.name).toHaveBeenCalledWith('gasnuki');
+    expect(mockInstance.description).toHaveBeenCalled();
+    expect(mockInstance.version).toHaveBeenCalled();
+    expect(mockInstance.action).toHaveBeenCalled();
+    expect(mockInstance.option).toHaveBeenCalledTimes(5);
+    expect(mockInstance.parseAsync).toHaveBeenCalledWith(process.argv);
   });
 });

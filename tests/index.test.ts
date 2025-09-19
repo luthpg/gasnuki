@@ -220,4 +220,49 @@ describe('generateTypes', () => {
     exitSpy.mockRestore();
     onSpy.mockRestore();
   });
+
+  it('watch=trueでファイル変更時に再生成が実行される', async () => {
+    const { watch } = await import('chokidar');
+    const { generateAppsScriptTypes } = await import('../src/modules/generate');
+
+    let readyCallback: () => void;
+    let allCallback: (event: string, path: string) => void;
+
+    const mockWatcher = {
+      on: vi.fn((event: string, callback: any) => {
+        if (event === 'ready') {
+          readyCallback = callback;
+        }
+        if (event === 'all') {
+          allCallback = callback;
+        }
+        return mockWatcher;
+      }),
+      close: vi.fn(),
+    };
+    (watch as any).mockReturnValue(mockWatcher);
+
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit');
+    });
+    const onSpy = vi
+      .spyOn(process, 'on')
+      .mockImplementation(() => process as any);
+
+    // 1回目の呼び出し
+    await generateTypes({ ...baseOptions, watch: true });
+    expect(generateAppsScriptTypes).toHaveBeenCalledTimes(1);
+
+    // on('ready')のコールバックを実行
+    await readyCallback();
+
+    // on('all')のコールバックを実行（ファイル変更をシミュレート）
+    await allCallback('change', '/project/src/somefile.ts');
+
+    // 2回目の呼び出しを確認
+    expect(generateAppsScriptTypes).toHaveBeenCalledTimes(2);
+
+    exitSpy.mockRestore();
+    onSpy.mockRestore();
+  });
 });
