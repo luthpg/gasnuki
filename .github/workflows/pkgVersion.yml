@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   check:
@@ -32,10 +33,20 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: "pnpm"
     
-      - name: Check if there is outdated packages and set an environment variable
+      - name: Check for outdated packages and save result
         id: outdated-check
+        shell: bash
         run: |
-          if [ "$(pnpm outdated --json || echo '{}')" != "{}" ]; then
+          # pnpm outdated --json を実行し、成功した場合のみ出力をファイルに保存
+          if output=$(pnpm outdated --json); then
+            echo "${output}" > outdated.json
+          else
+            # 失敗した場合は空のJSONを保存
+            echo "{}" > outdated.json
+          fi
+          
+          # jq を使ってJSONファイルが空でないことを確認
+          if jq -e 'keys | length > 0' outdated.json > /dev/null; then
             echo "Outdated packages found."
             echo "outdated=true" >> $GITHUB_OUTPUT
           else
@@ -43,15 +54,15 @@ jobs:
             echo "outdated=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create GitHub issue body as a markdown file
-        if: ${{ steps.outdated-check.outputs.outdated }} == 'true'
+      - name: Create GitHub issue body from file
+        if: steps.outdated-check.outputs.outdated == 'true'
         run: |
           echo "| Package | Current Version | Latest Version |" > issue_body.md
           echo "|---------|-----------------|----------------|" >> issue_body.md
-          pnpm outdated --json || echo "{}" | jq -r '. | to_entries | .[] | "| \(.key) | \(.value.current) | \(.value.latest) |"' >> issue_body.md
+          cat outdated.json | jq -r 'to_entries | .[] | "| \(.key) | \(.value.current) | \(.value.latest) |"' >> issue_body.md
 
       - name: Create GitHub issue
-        if: ${{ steps.outdated-check.outputs.outdated }} == 'true'
+        if: steps.outdated-check.outputs.outdated == 'true'
         uses: peter-evans/create-issue-from-file@v4
         with:
           title: "新しいバージョンのパッケージに更新してください"
