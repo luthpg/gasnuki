@@ -473,7 +473,9 @@ describe('generateAppsScriptTypes', () => {
     const writtenContent = (writeFileSync as Mock).mock.calls.at(-1)[1];
     const cleanedContent = writtenContent.replace(/\s+/g, ' ');
 
-    expect(cleanedContent).toContain('/** * This is a test function. * @param name The name to greet. * @returns A greeting message. */ greet(name: string): string;');
+    expect(cleanedContent).toContain(
+      '/** * This is a test function. * @param name The name to greet. * @returns A greeting message. */ greet(name: string): string;',
+    );
   });
 
   it('clientside.jsonの内容が出力に含まれること', async () => {

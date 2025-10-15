@@ -1,6 +1,6 @@
 {
   "name": "@ciderjs/gasnuki",
-  "version": "0.2.10",
+  "version": "0.3.0",
   "description": "Type definitions and utilities for Google Apps Script client-side API",
   "main": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -17,6 +17,11 @@
       "types": "./dist/promise.d.ts",
       "import": "./dist/promise.mjs",
       "require": "./dist/promise.cjs"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "import": "./dist/vite.mjs",
+      "require": "./dist/vite.cjs"
     }
   },
   "scripts": {
@@ -47,20 +52,24 @@
   "bugs": {
     "url": "https://github.com/luthpg/gasnuki/issues"
   },
-  "packageManager": "pnpm@10.11.1",
+  "packageManager": "pnpm@10.18.3",
   "dependencies": {
     "chokidar": "^4.0.3",
     "commander": "^14.0.1",
     "consola": "^3.4.2",
-    "jiti": "^2.5.1",
-    "ts-morph": "^27.0.0"
+    "jiti": "^2.6.1",
+    "ts-morph": "^27.0.2"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.2.4",
-    "@types/node": "^24.5.2",
+    "@biomejs/biome": "^2.2.6",
+    "@types/node": "^24.7.2",
     "@vitest/coverage-v8": "3.2.4",
-    "typescript": "^5.9.2",
+    "typescript": "^5.9.3",
     "unbuild": "^3.6.1",
+    "vite": "^7.1.10",
     "vitest": "3.2.4"
+  },
+  "peerDependencies": {
+    "vite": "^7"
   }
 }
