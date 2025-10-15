@@ -1,6 +1,6 @@
 # gasnuki
 
-[![Test Coverage](https://img.shields.io/badge/test%20coverage-81.52%25-green)](https://github.com/luthpg/gasnuki)
+[![Test Coverage](https://img.shields.io/badge/test%20coverage-84.76%25-green)](https://github.com/luthpg/gasnuki)
 [![License](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/@ciderjs/gasnuki.svg)](https://www.npmjs.com/package/@ciderjs/gasnuki)
 [![GitHub issues](https://img.shields.io/github/issues/luthpg/gasnuki.svg)](https://github.com/luthpg/gasnuki/issues)
@@ -45,6 +45,35 @@ npx @ciderjs/gasnuki
 
 デフォルトでは `types` ディレクトリに型定義ファイルが生成されます。
 
+### Vite プラグインとしての使い方
+
+Vite を使用している場合、`gasnuki` をプラグインとして統合し、サーバーサイドのファイルが変更されたときに自動で型定義を生成できます。
+
+1. `vite` と `@ciderjs/gasnuki` をインストールします:
+
+    ```bash
+    pnpm add -D vite @ciderjs/gasnuki
+    ```
+
+2. `vite.config.ts` にプラグインを追加します:
+
+    ```ts
+    import { defineConfig } from 'vite';
+    import { gasnuki } from '@ciderjs/gasnuki/vite';
+
+    export default defineConfig({
+      plugins: [
+        gasnuki({
+          /* オプション */
+        }),
+      ],
+    });
+    ```
+
+    これで `vite dev` を実行すると、`gasnuki` がApps Scriptソースファイルの変更を自動的に監視し、型を再生成します。
+
+---
+
 2. 生成されたディレクトリ（デフォルト: `types`）を `tsconfig.json` の `include` に追加してください:
 
 ```jsonc
@@ -76,6 +105,60 @@ google.script.run
 
 - Google Apps Script クライアントAPIの型定義
 - サーバーサイド関数の戻り値型をvoidに変換するユーティリティ型
+
+### Promiseベースのラッパー
+
+`@ciderjs/gasnuki/promise` を利用すると、`google.script.run` をPromiseを返す型安全なラッパーとして使用できます。これにより、`async/await` を使ったモダンな非同期処理を記述できます。
+
+1. まず、`gasnuki` で生成した型定義 (`ServerScripts`) と、`getPromisedServerScripts` 関数をインポートします。
+
+    ```ts:lib/gas.ts
+    import { getPromisedServerScripts } from '@ciderjs/gasnuki/promise';
+    // gasnukiが生成した型定義のパスを指定します
+    import type { ServerScripts } from '../types/appsscript';
+
+    export const gas = getPromisedServerScripts<ServerScripts>();
+    ```
+
+2. 作成した `gas` オブジェクトを使って、サーバーサイド関数を `async/await` で呼び出します。
+
+    ```ts:components/MyComponent.tsx
+    import { gas } from '../lib/gas';
+
+    async function fetchData() {
+      try {
+        // 'getContent' の引数と戻り値が型安全になります
+        const result = await gas.getContent('Sheet1');
+        console.log(result);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    ```
+
+#### モックアップによる開発
+
+`getPromisedServerScripts` にモック関数を渡すことで、`clasp push` をせずともフロントエンド開発を進めることができます。
+
+```ts:lib/gas.ts
+import {
+  getPromisedServerScripts,
+  type PartialScriptType,
+} from '@ciderjs/gasnuki/promise';
+import type { ServerScripts } from '../types/appsscript';
+
+// 開発用のモック関数を定義します
+const mockup: PartialScriptType<ServerScripts> = {
+  // sayHello関数の動作をシミュレート
+  sayHello: async (name) => {
+    await new Promise(resolve => setTimeout(resolve, 500)); // ネットワーク遅延を模倣
+    return `Hello from mockup, ${name}!`;
+  },
+  // 他の関数も同様にモックできます
+};
+
+export const gas = getPromisedServerScripts<ServerScripts>(mockup);
+```
 
 ## コントリビュート
 

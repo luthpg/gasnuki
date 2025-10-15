@@ -129,13 +129,13 @@ export const generateAppsScriptTypes = async ({
   // 1. First pass: Collect all exported declarations and functions
   for (const sourceFile of sourceFiles) {
     for (const iface of sourceFile.getInterfaces()) {
-      if (iface.isExported() && !iface.getName()?.endsWith('_')) {
+      if (!iface.getName()?.endsWith('_')) {
         exportedDeclarations.push(iface);
         exportedDeclarationNames.add(iface.getName());
       }
     }
     for (const typeAlias of sourceFile.getTypeAliases()) {
-      if (typeAlias.isExported() && !typeAlias.getName().endsWith('_')) {
+      if (!typeAlias.getName().endsWith('_')) {
         exportedDeclarations.push(typeAlias);
         exportedDeclarationNames.add(typeAlias.getName());
       }
@@ -143,7 +143,6 @@ export const generateAppsScriptTypes = async ({
     for (const func of sourceFile.getFunctions()) {
       const name = func.getName();
       if (
-        func.isExported() &&
         name &&
         !name.endsWith('_') &&
         !SIMPLE_TRIGGER_FUNCTION_NAMES.includes(name)
@@ -155,7 +154,6 @@ export const generateAppsScriptTypes = async ({
       }
     }
     for (const varStmt of sourceFile.getVariableStatements()) {
-      if (!varStmt.isExported()) continue;
       for (const varDecl of varStmt.getDeclarations()) {
         const name = varDecl.getName();
         const initializer = varDecl.getInitializer();
