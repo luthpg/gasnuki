@@ -1,0 +1,38 @@
+{
+	"name": "react",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build && rolldown -c && cpx src/server/appsscript.json dist/",
+		"lint": "eslint .",
+		"preview": "vite preview",
+		"push": "clasp push -f"
+	},
+	"dependencies": {
+		"@ciderjs/gasnuki": "../..",
+		"react": "^19.1.0",
+		"react-dom": "^19.1.0"
+	},
+	"devDependencies": {
+		"@eslint/js": "^9.25.0",
+		"@google/clasp": "3.0.6-alpha",
+		"@types/google-apps-script": "^1.0.99",
+		"@types/react": "^19.1.2",
+		"@types/react-dom": "^19.1.2",
+		"@vitejs/plugin-react": "^4.4.1",
+		"cpx": "^1.5.0",
+		"eslint": "^9.25.0",
+		"eslint-plugin-react-hooks": "^5.2.0",
+		"eslint-plugin-react-refresh": "^0.4.19",
+		"globals": "^16.0.0",
+		"rolldown": "1.0.0-beta.29",
+		"rolldown-plugin-remove-export": "^0.1.2",
+		"typescript": "~5.8.3",
+		"typescript-eslint": "^8.30.1",
+		"vite": "^6.3.5",
+		"vite-plugin-google-apps-script": "^0.3.2",
+		"vite-plugin-singlefile": "^2.3.0"
+	}
+}
