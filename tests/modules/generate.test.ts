@@ -74,8 +74,8 @@ describe('generateAppsScriptTypes', () => {
     project.createSourceFile(
       '/project/src/main1.ts',
       `import { User } from './models';
-        export function getUser(user: User): User { return user; }
-        export interface Admin { role: string; user: User; }`,
+export function getUser(user: User): User { return user; }
+export interface Admin { role: string; user: User; }`,
     );
     (Project as Mock).mockReturnValue(project);
     const { writeFileSync } = await import('node:fs');
@@ -131,13 +131,13 @@ describe('generateAppsScriptTypes', () => {
     project.createSourceFile(
       '/project/src/main4.ts',
       `
-      export function publicFunc() {}
-      function privateFunc_() {}
-      export interface PublicInterface {}
-      interface PrivateInterface_ {}
-      export type PublicType = string;
-      type PrivateType_ = number;
-      `,
+export function publicFunc() {}
+function privateFunc_() {}
+export interface PublicInterface {}
+interface PrivateInterface_ {}
+export type PublicType = string;
+type PrivateType_ = number;
+      `.trim(),
     );
     (Project as Mock).mockReturnValue(project);
     const { writeFileSync } = await import('node:fs');
@@ -243,7 +243,7 @@ describe('generateAppsScriptTypes', () => {
     project.createSourceFile(
       '/project/src/test4.ts',
       `export interface Test { id: string; }
-       export function processTest(test: Test): Test { return test; }`,
+export function processTest(test: Test): Test { return test; }`,
     );
     (Project as Mock).mockReturnValue(project);
     const { writeFileSync } = await import('node:fs');
@@ -276,9 +276,9 @@ describe('generateAppsScriptTypes', () => {
     project.createSourceFile(
       '/project/src/main6.ts',
       `import { User } from './models/user';
-       import { Admin } from './models/admin';
-       export function processUser(user: User): User { return user; }
-       export function processAdmin(admin: Admin): Admin { return admin; }`,
+import { Admin } from './models/admin';
+export function processUser(user: User): User { return user; }
+export function processAdmin(admin: Admin): Admin { return admin; }`,
     );
     (Project as Mock).mockReturnValue(project);
     const { writeFileSync } = await import('node:fs');
@@ -304,13 +304,13 @@ describe('generateAppsScriptTypes', () => {
     project.createSourceFile(
       '/project/src/types2.ts',
       `export interface Base { id: string; }
-       export interface Extended extends Base { name: string; }
-       export type ComplexType = Extended & { extra: boolean; }`,
+export interface Extended extends Base { name: string; }
+export type ComplexType = Extended & { extra: boolean; }`,
     );
     project.createSourceFile(
       '/project/src/main7.ts',
       `import { ComplexType } from './types2';
-       export function processComplex(data: ComplexType): ComplexType { return data; }`,
+export function processComplex(data: ComplexType): ComplexType { return data; }`,
     );
     (Project as Mock).mockReturnValue(project);
     const { writeFileSync } = await import('node:fs');
@@ -336,14 +336,14 @@ describe('generateAppsScriptTypes', () => {
     project.createSourceFile(
       '/project/src/types3.ts',
       `export interface Item { id: number; name: string; }
-       export type ItemArray = Item[];
-       export type OptionalItem = Item | null;`,
+export type ItemArray = Item[];
+export type OptionalItem = Item | null;`,
     );
     project.createSourceFile(
       '/project/src/main8.ts',
       `import { ItemArray, OptionalItem } from './types3';
-       export function processItems(items: ItemArray): ItemArray { return items; }
-       export function processOptional(item: OptionalItem): OptionalItem { return item; }`,
+export function processItems(items: ItemArray): ItemArray { return items; }
+export function processOptional(item: OptionalItem): OptionalItem { return item; }`,
     );
     (Project as Mock).mockReturnValue(project);
     const { writeFileSync } = await import('node:fs');
@@ -370,17 +370,17 @@ describe('generateAppsScriptTypes', () => {
     project.createSourceFile(
       '/project/src/types4.ts',
       `export interface Address { street: string; city: string; }
-       export interface User { 
-         id: number; 
-         name: string; 
-         address: Address;
-         tags: string[];
-       }`,
+export interface User { 
+  id: number; 
+  name: string; 
+  address: Address;
+  tags: string[];
+}`,
     );
     project.createSourceFile(
       '/project/src/main9.ts',
       `import { User } from './types4';
-       export function processUser(user: User): User { return user; }`,
+export function processUser(user: User): User { return user; }`,
     );
     (Project as Mock).mockReturnValue(project);
     const { writeFileSync } = await import('node:fs');
@@ -403,15 +403,15 @@ describe('generateAppsScriptTypes', () => {
     project.createSourceFile(
       '/project/src/types5.ts',
       `export interface A { a: string; }
-       export interface B { b: number; }
-       export type Union = A | B;
-       export type Intersection = A & B;`,
+export interface B { b: number; }
+export type Union = A | B;
+export type Intersection = A & B;`,
     );
     project.createSourceFile(
       '/project/src/main10.ts',
       `import { Union, Intersection } from './types5';
-       export function processUnion(data: Union): Union { return data; }
-       export function processIntersection(data: Intersection): Intersection { return data; }`,
+export function processUnion(data: Union): Union { return data; }
+export function processIntersection(data: Intersection): Intersection { return data; }`,
     );
     (Project as Mock).mockReturnValue(project);
     const { writeFileSync } = await import('node:fs');
@@ -435,10 +435,10 @@ describe('generateAppsScriptTypes', () => {
     project.createSourceFile(
       '/project/src/triggers.ts',
       `
-      export function onOpen(e) {}
-      export function doGet(e) {}
-      export function normalFunction() {}
-      `,
+export function onOpen(e) {}
+export function doGet(e) {}
+export function normalFunction() {}
+      `.trim(),
     );
     (Project as Mock).mockReturnValue(project);
     const { writeFileSync } = await import('node:fs');
@@ -457,13 +457,13 @@ describe('generateAppsScriptTypes', () => {
     project.createSourceFile(
       '/project/src/with-jsdoc.ts',
       `
-      /**
-       * This is a test function.
-       * @param name The name to greet.
-       * @returns A greeting message.
-       */
-      export function greet(name: string): string { return \`Hello, \${name}\`; }
-      `,
+/**
+ * This is a test function.
+ * @param name The name to greet.
+ * @returns A greeting message.
+ */
+export function greet(name: string): string { return \`Hello, \${name}\`; }
+      `.trim(),
     );
     (Project as Mock).mockReturnValue(project);
     const { writeFileSync } = await import('node:fs');
@@ -481,7 +481,7 @@ describe('generateAppsScriptTypes', () => {
   it('clientside.jsonの内容が出力に含まれること', async () => {
     const project = new Project({ useInMemoryFileSystem: true });
     project.createSourceFile(
-      '/project/src/main.ts',
+      '/project/src/main11.ts',
       'export function noop() {}',
     );
     (Project as Mock).mockReturnValue(project);
@@ -521,5 +521,40 @@ describe('generateAppsScriptTypes', () => {
 
     const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
     expect(writtenContent).toContain('implicitVoid(): void;');
+  });
+
+  it('srcDirの外部で定義され、関数で利用されている型を正しくインポートすること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    // `srcDir` (src) の外部に型定義ファイルを作成
+    project.createSourceFile(
+      '/project/external/types.ts',
+      'export interface ExternalType { id: string; }',
+    );
+    // `srcDir` 内のファイルで、外部の型をインポートして使用
+    project.createSourceFile(
+      '/project/src/main12.ts',
+      `import { ExternalType } from '../external/types';
+export function processExternal(data: ExternalType): ExternalType { return data; }`,
+    );
+    (Project as Mock).mockReturnValue(project);
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes(opts);
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // 1. 外部の型が正しくインポートされていることを確認
+    // 出力先は /project/types なので、相対パスは ../external/types となる
+    expect(writtenContent).toContain(
+      "import type { ExternalType } from '../external/types';",
+    );
+
+    // 2. 外部の型がインライン展開されていないことを確認
+    expect(writtenContent).not.toContain('export interface ExternalType');
+
+    // 3. ServerScriptsで型が正しく使用されていることを確認
+    expect(writtenContent).toContain(
+      'processExternal(data: ExternalType): ExternalType;',
+    );
   });
 });

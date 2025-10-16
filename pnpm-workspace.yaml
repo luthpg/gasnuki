@@ -3,4 +3,5 @@ onlyBuiltDependencies:
   - esbuild
 packages:
   - playground/react
+  - playground/react-with-vite-plugin
   - playground/vue3

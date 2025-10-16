@@ -1,6 +1,6 @@
 {
   "name": "@ciderjs/gasnuki",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Type definitions and utilities for Google Apps Script client-side API",
   "main": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -36,6 +36,7 @@
     "test:coverage:update": "pnpm test:coverage && pnpm update-coverage-badge",
     "prepublish": "pnpm run generate && pnpm run check && pnpm run test:coverage:update && pnpm run build",
     "pg:react": "pnpm -C playground/react",
+    "pg:react-vite": "pnpm -C playground/react-with-vite-plugin",
     "pg:vue": "pnpm -C playground/vue3"
   },
   "keywords": [
