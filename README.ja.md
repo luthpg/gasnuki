@@ -1,5 +1,6 @@
-# gasnuki
+# @ciderjs/gasnuki
 
+[![README-en](https://img.shields.io/badge/English-blue?logo=ReadMe)](./README.md)
 [![Test Coverage](https://img.shields.io/badge/test%20coverage-95.1%25-brightgreen)](https://github.com/luthpg/gasnuki)
 [![License](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/@ciderjs/gasnuki.svg)](https://www.npmjs.com/package/@ciderjs/gasnuki)
