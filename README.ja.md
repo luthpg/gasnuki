@@ -2,7 +2,7 @@
 
 [![README-en](https://img.shields.io/badge/English-blue?logo=ReadMe)](./README.md)
 [![Test Coverage](https://img.shields.io/badge/test%20coverage-95.1%25-brightgreen)](https://github.com/luthpg/gasnuki)
-[![License](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/@ciderjs/gasnuki.svg)](https://www.npmjs.com/package/@ciderjs/gasnuki)
 [![GitHub issues](https://img.shields.io/github/issues/luthpg/gasnuki.svg)](https://github.com/luthpg/gasnuki/issues)
 
@@ -10,8 +10,7 @@ Google Apps Script クライアントサイドAPIの型定義・ユーティリ�
 
 ## 概要
 
-`gasnuki`は、Google Apps Script のクライアントサイドAPIをTypeScriptで安全に扱うための型定義とユーティリティを提供します。
-Apps Scriptとフロントエンド間の型安全な通信をサポートします。
+`gasnuki`は、サーバーサイドのGoogle Apps Script関数から型定義を自動で抽出し、クライアントサイドで利用する`google.script.run` APIに完全な型付けを提供します。これにより、Apps Scriptバックエンドとモダンなフロントエンド開発との間のギャップを埋め、自動補完と堅牢な型チェックを実現します。
 
 ## インストール
 

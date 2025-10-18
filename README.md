@@ -2,7 +2,7 @@
 
 [![README-ja](https://img.shields.io/badge/日本語-blue?logo=ReadMe)](./README.ja.md)
 [![Test Coverage](https://img.shields.io/badge/test%20coverage-95.1%25-brightgreen)](https://github.com/luthpg/gasnuki)
-[![License](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/@ciderjs/gasnuki.svg)](https://www.npmjs.com/package/@ciderjs/gasnuki)
 [![GitHub issues](https://img.shields.io/github/issues/luthpg/gasnuki.svg)](https://github.com/luthpg/gasnuki/issues)
 
@@ -10,7 +10,7 @@ Type definitions and utilities for Google Apps Script client-side API
 
 ## Overview
 
-`gasnuki` provides TypeScript type definitions and utilities for safely using the Google Apps Script client-side API. It helps ensure type-safe communication between Apps Script and your frontend.
+`gasnuki` automatically extracts type definitions from your server-side Google Apps Script functions, providing a fully type-safe `google.script.run` API for your client-side code. This bridges the gap between your Apps Script backend and modern frontend development with autocompletion and robust type-checking.
 
 ## Installation
 
