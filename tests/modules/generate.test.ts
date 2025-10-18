@@ -557,4 +557,54 @@ export function processExternal(data: ExternalType): ExternalType { return data;
       'processExternal(data: ExternalType): ExternalType;',
     );
   });
+
+  it('関数の返り値で利用される外部の型を正しくインポートすること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    // `srcDir` (src) の外部に型定義ファイルを作成
+    project.createSourceFile(
+      '/project/types/external.ts',
+      'export interface ExternalReturnValue { value: string; }',
+    );
+    // `srcDir` 内のファイルで、外部の型を返り値として使用
+    project.createSourceFile(
+      '/project/src/returnsExternal.ts',
+      `import { ExternalReturnValue } from '../types/external';
+
+// 1. 明示的な返り値の型
+export function getExplicit(): ExternalReturnValue {
+  return { value: 'explicit' };
+}
+
+// 2. 推論される返り値の型
+const inferredValue: ExternalReturnValue = { value: 'inferred' };
+export const getInferred = () => inferredValue;
+
+// 3. 他の関数から推論される返り値の型
+export const getInferredFromFunc = () => getExplicit();
+`,
+    );
+    (Project as Mock).mockReturnValue(project);
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes(opts);
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // 1. 外部の型が正しくインポートされていることを確認
+    expect(writtenContent).toContain(
+      "import type { ExternalReturnValue } from './external';",
+    );
+
+    // 2. 外部の型がインライン展開されていないことを確認
+    expect(writtenContent).not.toContain(
+      'export interface ExternalReturnValue',
+    );
+
+    // 3. ServerScriptsで型が正しく使用されていることを確認
+    expect(writtenContent).toContain('getExplicit(): ExternalReturnValue;');
+    expect(writtenContent).toContain('getInferred(): ExternalReturnValue;');
+    expect(writtenContent).toContain(
+      'getInferredFromFunc(): ExternalReturnValue;',
+    );
+  });
 });
