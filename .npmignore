@@ -6,6 +6,7 @@
 /coverage
 /playground
 /.github
+/.vscode
 /.bin
 /.docs
 /.kiro
