@@ -2,7 +2,7 @@
 
 [![README-en](https://img.shields.io/badge/English-blue?logo=ReadMe)](./README.md)
 [![Test Coverage](https://img.shields.io/badge/test%20coverage-95.1%25-brightgreen)](https://github.com/luthpg/gasnuki)
-[![License](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/@ciderjs/gasnuki.svg)](https://www.npmjs.com/package/@ciderjs/gasnuki)
 [![GitHub issues](https://img.shields.io/github/issues/luthpg/gasnuki.svg)](https://github.com/luthpg/gasnuki/issues)
 
@@ -10,8 +10,16 @@ Google Apps Script クライアントサイドAPIの型定義・ユーティリ�
 
 ## 概要
 
-`gasnuki`は、Google Apps Script のクライアントサイドAPIをTypeScriptで安全に扱うための型定義とユーティリティを提供します。
-Apps Scriptとフロントエンド間の型安全な通信をサポートします。
+`gasnuki`は、サーバーサイドのGoogle Apps Script関数から型定義を自動で抽出し、クライアントサイドで利用する`google.script.run` APIに完全な型付けを提供します。これにより、Apps Scriptバックエンドとモダンなフロントエンド開発との間のギャップを埋め、自動補完と堅牢な型チェックを実現します。
+
+## `gasnuki`が実現する開発体験
+
+`gasnuki`は、Google Apps Scriptを用いたWebアプリケーション開発における、もどかしい開発体験を劇的に改善します。
+
+- **完全な型安全性**: `google.script.run`の引数や戻り値に型が付き、エディタの自動補完が効くため、推測に頼るコーディングは不要になります。
+- **モダンな非同期処理**: `async/await`構文を利用して、コールバック地獄に陥ることなく、サーバーサイド関数をシンプルかつ直感的に呼び出せます。
+- **高速な開発サイクル**: フロントエンドの変更を試すたびに`clasp push`する必要はありません。モック機能を使えば、オフラインで迅速なUI開発が可能です。
+- **シームレスな統合**: Vite開発サーバーと連携し、サーバーサイドのコードを変更・保存するだけで、クライアントサイドの型定義が自動的に更新されます。
 
 ## インストール
 
@@ -102,16 +110,19 @@ google.script.run
   .getContent('Sheet1');
 ```
 
-## 機能
+## 主な機能
 
-- Google Apps Script クライアントAPIの型定義
-- サーバーサイド関数の戻り値型をvoidに変換するユーティリティ型
+`gasnuki`は、優れた開発体験を実現するために、以下の機能を提供します。
 
-### Promiseベースのラッパー
+### サーバーサイド関数の型定義を自動生成
 
-`@ciderjs/gasnuki/promise` を利用すると、`google.script.run` をPromiseを返す型安全なラッパーとして使用できます。これにより、`async/await` を使ったモダンな非同期処理を記述できます。
+`gasnuki`コマンドを実行すると、指定されたApps Scriptプロジェクト内の `.ts` ファイルを解析し、公開されているすべてのサーバーサイド関数のシグネチャを抽出します。そして、クライアントサイドの`google.script.run`から安全に呼び出せる型定義ファイルを生成します。
 
-1. まず、`gasnuki` で生成した型定義 (`ServerScripts`) と、`getPromisedServerScripts` 関数をインポートします。
+### PromiseベースのモダンなAPIラッパー
+
+`@ciderjs/gasnuki/promise`は、従来のコールバックベースのAPIを、`async/await`で利用可能なPromiseベースの型安全なラッパーに変換します。
+
+1. `getPromisedServerScripts`関数をインポートし、`gasnuki`が生成した型`ServerScripts`を渡します。
 
     ```ts:lib/gas.ts
     import { getPromisedServerScripts } from '@ciderjs/gasnuki/promise';
@@ -121,7 +132,7 @@ google.script.run
     export const gas = getPromisedServerScripts<ServerScripts>();
     ```
 
-2. 作成した `gas` オブジェクトを使って、サーバーサイド関数を `async/await` で呼び出します。
+2. これで、サーバーサイド関数を `async/await` で呼び出せます。
 
     ```ts:components/MyComponent.tsx
     import { gas } from '../lib/gas';
@@ -137,9 +148,9 @@ google.script.run
     }
     ```
 
-#### モックアップによる開発
+### フロントエンド開発を加速するモック機能
 
-`getPromisedServerScripts` にモック関数を渡すことで、`clasp push` をせずともフロントエンド開発を進めることができます。
+`getPromisedServerScripts`にモック用のオブジェクトを渡すことで、`clasp push`をせずともフロントエンド開発を進めることができます。これにより、バックエンドのロジックに依存せず、UIの挙動確認やデバッグを迅速に行えます。
 
 ```ts:lib/gas.ts
 import {
