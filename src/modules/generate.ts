@@ -218,11 +218,6 @@ export const generateAppsScriptTypes = async ({
     }
   };
 
-  const returnValueSymbols = new Set<import('ts-morph').Symbol>();
-  for (const func of exportedFunctions) {
-    collectSymbolsFromType(func.getReturnType(), returnValueSymbols);
-  }
-
   const symbolsToProcess = new Set<import('ts-morph').Symbol>();
 
   // 2. Collect initial dependencies from function signatures and exported types in srcDir
@@ -245,37 +240,18 @@ export const generateAppsScriptTypes = async ({
 
       const parameters = func.getParameters();
       for (const param of parameters) {
-        const typeRefs = param.getDescendantsOfKind(SyntaxKind.TypeReference);
-        for (const typeRef of typeRefs) {
-          const symbol =
-            typeRef.getType().getAliasSymbol() ?? typeRef.getType().getSymbol();
-          if (symbol) symbolsToProcess.add(symbol);
-        }
+        collectSymbolsFromType(param.getType(), symbolsToProcess);
       }
 
-      const returnTypeNode = func.getReturnTypeNode();
-      if (returnTypeNode) {
-        const typeRefs = returnTypeNode.getDescendantsOfKind(
-          SyntaxKind.TypeReference,
-        );
-        for (const typeRef of typeRefs) {
-          const symbol =
-            typeRef.getType().getAliasSymbol() ?? typeRef.getType().getSymbol();
-          if (symbol) symbolsToProcess.add(symbol);
-        }
-      }
+      const returnType = func.getReturnType();
+      collectSymbolsFromType(returnType, symbolsToProcess);
     }
     // For interfaces and type aliases, scan the whole declaration
     else if (
       decl.getKind() === SyntaxKind.InterfaceDeclaration ||
       decl.getKind() === SyntaxKind.TypeAliasDeclaration
     ) {
-      const typeRefs = decl.getDescendantsOfKind(SyntaxKind.TypeReference);
-      for (const typeRef of typeRefs) {
-        const symbol =
-          typeRef.getType().getAliasSymbol() ?? typeRef.getType().getSymbol();
-        if (symbol) symbolsToProcess.add(symbol);
-      }
+      collectSymbolsFromType(decl.getType(), symbolsToProcess);
     }
   }
 
