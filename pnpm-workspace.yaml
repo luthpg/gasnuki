@@ -1,7 +1,10 @@
-onlyBuiltDependencies:
-  - '@biomejs/biome'
-  - esbuild
 packages:
   - playground/react
   - playground/react-with-vite-plugin
   - playground/vue3
+
+onlyBuiltDependencies:
+  - '@biomejs/biome'
+  - core-js
+  - esbuild
+  - fsevents

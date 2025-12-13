@@ -1,32 +1,75 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cli, parseArgs } from '../src/cli';
+import { parseArgs, runCli } from '../src/cli';
 
 // commander, loadConfig, generateTypesのモック
-vi.mock('commander', () => ({
-  Command: vi.fn(() => ({
-    opts: vi.fn(() => ({
-      project: '/p',
-      watch: false,
-      srcDir: 'server',
-      outDir: 'types',
-      outputFile: 'appsscript.ts',
-    })),
-    options: [
+vi.mock('commander', () => {
+  const mockOpts = vi.fn(() => ({
+    project: '/p',
+    watch: false,
+    srcDir: 'server',
+    outDir: 'types',
+    outputFile: 'appsscript.ts',
+  }));
+
+  const mockName = vi.fn();
+  const mockDescription = vi.fn();
+  const mockVersion = vi.fn();
+  const mockAction = vi.fn();
+  const mockOption = vi.fn();
+  const mockParseAsync = vi.fn();
+
+  // Chainable mocks
+  mockName.mockReturnValue({ description: mockDescription }); // simplified chaining setup if needed, but returning 'this' is tricky with shared spies in a class context if 'this' differs.
+  // Actually, simplest is to have them return a shared 'mockProgram' object or similar?
+  // But usage is `program.name().description()...`
+  // So they need to return the instance.
+
+  class Command {
+    opts = mockOpts;
+    options: any[] = [
       { attributeName: () => 'project', defaultValue: '/p' },
       { attributeName: () => 'watch', defaultValue: false },
       { attributeName: () => 'srcDir', defaultValue: 'server' },
       { attributeName: () => 'outDir', defaultValue: 'types' },
       { attributeName: () => 'outputFile', defaultValue: 'appsscript.ts' },
-    ],
-    getOptionValueSource: vi.fn(() => 'default'),
-    parseAsync: vi.fn(),
-    name: vi.fn().mockReturnThis(),
-    description: vi.fn().mockReturnThis(),
-    version: vi.fn().mockReturnThis(),
-    action: vi.fn().mockReturnThis(),
-    option: vi.fn().mockReturnThis(),
-  })),
-}));
+    ];
+    getOptionValueSource = vi.fn(() => 'default');
+    parseAsync = mockParseAsync;
+
+    constructor() {
+      this.name = mockName;
+      this.description = mockDescription;
+      this.version = mockVersion;
+      this.action = mockAction;
+      this.option = mockOption;
+
+      // Use implementation to support chaining
+      mockName.mockImplementation((..._args) => {
+        return this;
+      });
+      mockDescription.mockImplementation(() => this);
+      mockVersion.mockImplementation(() => this);
+      mockAction.mockImplementation(() => this);
+      mockOption.mockImplementation(() => this);
+    }
+
+    name: any;
+    description: any;
+    version: any;
+    action: any;
+    option: any;
+  }
+  return {
+    Command,
+    mockOpts,
+    mockName,
+    mockDescription,
+    mockVersion,
+    mockAction,
+    mockOption,
+    mockParseAsync,
+  };
+});
 vi.mock('../src/modules/config', () => ({ loadConfig: vi.fn(() => ({})) }));
 vi.mock('../src/index', () => ({
   generateTypes: vi.fn(() => Promise.resolve()),
@@ -88,14 +131,17 @@ describe('parseArgs', () => {
       if (key === 'srcDir') return 'cli';
       return 'default';
     });
+
     // CLIオプションの値を明示的に設定
-    (command.opts as any) = vi.fn(() => ({
+    // @ts-expect-error mockOpts is exposed
+    const { mockOpts } = await import('commander');
+    mockOpts.mockReturnValue({
       project: '/p',
       watch: false,
       srcDir: 'cli-src', // CLIで明示的に設定された値
       outDir: 'out',
       outputFile: 'types.ts',
-    }));
+    });
 
     await parseArgs(command);
 
@@ -115,6 +161,16 @@ describe('parseArgs', () => {
     const command = new Command();
     command.getOptionValueSource = vi.fn(() => 'default');
 
+    // @ts-expect-error mockOpts is exposed
+    const { mockOpts } = await import('commander');
+    mockOpts.mockReturnValue({
+      project: '/p',
+      watch: false,
+      srcDir: 'server',
+      outDir: 'types',
+      outputFile: 'appsscript.ts',
+    });
+
     await parseArgs(command);
 
     const callArg = (generateTypes as any).mock.calls[0][0];
@@ -130,13 +186,15 @@ describe('parseArgs', () => {
     const { generateTypes } = await import('../src/index');
 
     const command = new Command();
-    (command.opts as any) = vi.fn(() => ({
+    // @ts-expect-error mockOpts is exposed
+    const { mockOpts } = await import('commander');
+    mockOpts.mockReturnValue({
       project: '/p',
       watch: true,
       srcDir: 'server',
       outDir: 'types',
       outputFile: 'appsscript.ts',
-    }));
+    });
 
     await parseArgs(command);
 
@@ -178,29 +236,34 @@ describe('parseArgs', () => {
 
 describe('cli', () => {
   it('CLIエントリポイントがエラーなく動作する', async () => {
-    await expect(cli()).resolves.not.toThrow();
+    await expect(runCli()).resolves.not.toThrow();
   });
 
   it('CLIが正常に実行され、各メソッドが呼ばれる', async () => {
-    const { Command } = await import('commander');
-    const mockInstance = {
-      name: vi.fn().mockReturnThis(),
-      description: vi.fn().mockReturnThis(),
-      version: vi.fn().mockReturnThis(),
-      action: vi.fn().mockReturnThis(),
-      option: vi.fn().mockReturnThis(),
-      parseAsync: vi.fn().mockResolvedValue(undefined),
-    };
-    (Command as any).mockReturnValue(mockInstance);
+    const {
+      // @ts-expect-error mock exports
+      mockName,
+      // @ts-expect-error mock exports
+      mockDescription,
+      // @ts-expect-error mock exports
+      mockVersion,
+      // @ts-expect-error mock exports
+      mockAction,
+      // @ts-expect-error mock exports
+      mockOption,
+      // @ts-expect-error mock exports
+      mockParseAsync,
+    } = await import('commander');
 
-    await cli();
+    await runCli();
 
-    expect(Command).toHaveBeenCalled();
-    expect(mockInstance.name).toHaveBeenCalledWith('gasnuki');
-    expect(mockInstance.description).toHaveBeenCalled();
-    expect(mockInstance.version).toHaveBeenCalled();
-    expect(mockInstance.action).toHaveBeenCalled();
-    expect(mockInstance.option).toHaveBeenCalledTimes(5);
-    expect(mockInstance.parseAsync).toHaveBeenCalledWith(process.argv);
+    console.log('Test: Checking mockName calls:', mockName.mock.calls);
+    expect(mockName).toHaveBeenCalled();
+    expect(mockName).toHaveBeenCalledWith('gasnuki');
+    expect(mockDescription).toHaveBeenCalled();
+    expect(mockVersion).toHaveBeenCalled();
+    expect(mockAction).toHaveBeenCalled();
+    expect(mockOption).toHaveBeenCalledTimes(5);
+    expect(mockParseAsync).toHaveBeenCalledWith(process.argv);
   });
 });
