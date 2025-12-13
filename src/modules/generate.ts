@@ -126,7 +126,8 @@ export const generateAppsScriptTypes = async ({
   srcDir,
   outDir,
   outputFile,
-}: Omit<GenerateOptions, 'watch'>) => {
+  projectInstance,
+}: Omit<GenerateOptions, 'watch'> & { projectInstance?: Project }) => {
   const absoluteSrcDir = path.resolve(projectPath, srcDir);
   const absoluteOutDir = path.resolve(projectPath, outDir);
   const absoluteOutputFile = path.resolve(absoluteOutDir, outputFile);
@@ -135,10 +136,12 @@ export const generateAppsScriptTypes = async ({
   consola.info(`  AppsScript Source Directory: ${absoluteSrcDir}`);
   consola.info(`  Output File: ${absoluteOutputFile}`);
 
-  const project = new Project({
-    tsConfigFilePath: path.resolve(projectPath, 'tsconfig.json'),
-    skipAddingFilesFromTsConfig: true,
-  });
+  const project =
+    projectInstance ??
+    new Project({
+      tsConfigFilePath: path.resolve(projectPath, 'tsconfig.json'),
+      skipAddingFilesFromTsConfig: true,
+    });
 
   const sourceFilesPattern = path
     .join(absoluteSrcDir, '**/*.ts')
@@ -325,6 +328,15 @@ export const generateAppsScriptTypes = async ({
 
     const declaration = symbol.getDeclarations()[0];
     if (!declaration) {
+      continue;
+    }
+
+    if (
+      declaration.getKind() === SyntaxKind.MethodSignature ||
+      declaration.getKind() === SyntaxKind.PropertySignature ||
+      declaration.getKind() === SyntaxKind.MethodDeclaration ||
+      declaration.getKind() === SyntaxKind.PropertyDeclaration
+    ) {
       continue;
     }
 

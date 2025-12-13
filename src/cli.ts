@@ -37,7 +37,7 @@ export const parseArgs = async (command: Command) => {
   await generateTypes(finalOptions);
 };
 
-export const cli = async () => {
+export const runCli = async () => {
   const program = new Command();
 
   program
@@ -71,4 +71,10 @@ export const cli = async () => {
   await program.parseAsync(process.argv);
 };
 
-cli();
+// Check if this module is the main entry point
+// @ts-expect-error
+const isMainModule = typeof require !== 'undefined' && require.main === module;
+// For ESM/Vite environments, simplistic check might be needed or assume it's called via bin
+if (isMainModule || process.argv[1] === import.meta.filename) {
+  runCli();
+}
