@@ -82,6 +82,45 @@ export const SIMPLE_TRIGGER_FUNCTION_NAMES = [
   'doPost',
 ];
 
+/**
+ * Extracts the package name from a node_modules file path.
+ * Handles both regular packages (e.g., 'zod') and scoped packages (e.g., '@types/node').
+ * For DefinitelyTyped packages (@types/***), returns the actual package name (***).
+ * @param filePath The full file path within node_modules
+ * @returns The package name, or null if not found
+ */
+const getPackageNameFromNodeModulesPath_ = (
+  filePath: string,
+): string | null => {
+  const normalizedPath = filePath.replace(/\\/g, '/');
+  const nodeModulesIndex = normalizedPath.lastIndexOf('node_modules/');
+  if (nodeModulesIndex === -1) {
+    return null;
+  }
+
+  const afterNodeModules = normalizedPath.slice(
+    nodeModulesIndex + 'node_modules/'.length,
+  );
+  const parts = afterNodeModules.split('/');
+
+  if (parts.length === 0) {
+    return null;
+  }
+
+  // Scoped package: @scope/package-name
+  if (parts[0].startsWith('@') && parts.length >= 2) {
+    const scopedName = `${parts[0]}/${parts[1]}`;
+    // Convert @types/package-name to package-name (DefinitelyTyped)
+    if (parts[0] === '@types') {
+      return parts[1];
+    }
+    return scopedName;
+  }
+
+  // Regular package: package-name
+  return parts[0];
+};
+
 export const generateAppsScriptTypes = async ({
   project: projectPath,
   srcDir,
@@ -218,6 +257,9 @@ export const generateAppsScriptTypes = async ({
     }
   };
 
+  // Symbols from function signatures - these may need imports from external packages
+  const functionSignatureSymbols = new Set<import('ts-morph').Symbol>();
+  // All symbols to process (for inlining internal types)
   const symbolsToProcess = new Set<import('ts-morph').Symbol>();
 
   // 2. Collect initial dependencies from function signatures and exported types in srcDir
@@ -240,13 +282,15 @@ export const generateAppsScriptTypes = async ({
 
       const parameters = func.getParameters();
       for (const param of parameters) {
+        collectSymbolsFromType(param.getType(), functionSignatureSymbols);
         collectSymbolsFromType(param.getType(), symbolsToProcess);
       }
 
       const returnType = func.getReturnType();
+      collectSymbolsFromType(returnType, functionSignatureSymbols);
       collectSymbolsFromType(returnType, symbolsToProcess);
     }
-    // For interfaces and type aliases, scan the whole declaration
+    // For interfaces and type aliases, scan the whole declaration (for inlining only)
     else if (
       decl.getKind() === SyntaxKind.InterfaceDeclaration ||
       decl.getKind() === SyntaxKind.TypeAliasDeclaration
@@ -287,7 +331,24 @@ export const generateAppsScriptTypes = async ({
     const sourceFile = declaration.getSourceFile();
     const sourceFilePath = sourceFile.getFilePath();
 
+    // Skip TypeScript built-in types (lib.*.d.ts) - no import needed
+    if (/[/\\]typescript[/\\]lib[/\\]/.test(sourceFilePath)) {
+      continue;
+    }
+
+    // Handle node_modules types: generate import statement only if directly used in function signatures
     if (sourceFilePath.includes('node_modules')) {
+      // Only generate import for types directly used in function signatures
+      if (functionSignatureSymbols.has(symbol)) {
+        const packageName = getPackageNameFromNodeModulesPath_(sourceFilePath);
+        if (packageName) {
+          processedSymbols.add(symbolName);
+          if (!importsMap.has(packageName)) {
+            importsMap.set(packageName, new Set());
+          }
+          importsMap.get(packageName)?.add(symbolName);
+        }
+      }
       continue;
     }
 

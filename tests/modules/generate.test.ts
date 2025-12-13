@@ -470,7 +470,7 @@ export function greet(name: string): string { return \`Hello, \${name}\`; }
 
     await generateAppsScriptTypes(opts);
 
-    const writtenContent = (writeFileSync as Mock).mock.calls.at(-1)[1];
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
     const cleanedContent = writtenContent.replace(/\s+/g, ' ');
 
     expect(cleanedContent).toContain(
@@ -605,6 +605,101 @@ export const getInferredFromFunc = () => getExplicit();
     expect(writtenContent).toContain('getInferred(): ExternalReturnValue;');
     expect(writtenContent).toContain(
       'getInferredFromFunc(): ExternalReturnValue;',
+    );
+  });
+
+  it('外部ライブラリ（node_modules）の型を正しくインポートすること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    // node_modules内の外部ライブラリの型定義をシミュレート
+    project.createSourceFile(
+      '/project/node_modules/zod/index.d.ts',
+      `export interface ZodSchema { parse: (data: unknown) => unknown; }
+export type ZodType = ZodSchema;`,
+    );
+    // srcDir内で外部ライブラリの型を使用
+    project.createSourceFile(
+      '/project/src/validation.ts',
+      `import { ZodSchema } from 'zod';
+export function validate(schema: ZodSchema): boolean { return true; }`,
+    );
+    (Project as Mock).mockReturnValue(project);
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes(opts);
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // 1. 外部ライブラリからのimport文が生成されていることを確認
+    expect(writtenContent).toContain("import type { ZodSchema } from 'zod';");
+
+    // 2. 外部ライブラリの型がインライン展開されていないことを確認
+    expect(writtenContent).not.toContain('export interface ZodSchema');
+
+    // 3. ServerScriptsで型が正しく使用されていることを確認
+    expect(writtenContent).toContain('validate(schema: ZodSchema): boolean;');
+  });
+
+  it('スコープ付きパッケージ（@scope/package）の型を正しくインポートすること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    // スコープ付きパッケージの型定義をシミュレート
+    project.createSourceFile(
+      '/project/node_modules/@scope/mylib/index.d.ts',
+      `export interface MyType { value: string; }`,
+    );
+    // srcDir内でスコープ付きパッケージの型を使用
+    project.createSourceFile(
+      '/project/src/files.ts',
+      `import { MyType } from '@scope/mylib';
+export function getMyValue(data: MyType): string { return data.value; }`,
+    );
+    (Project as Mock).mockReturnValue(project);
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes(opts);
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // 1. スコープ付きパッケージからのimport文が生成されていることを確認
+    expect(writtenContent).toContain(
+      "import type { MyType } from '@scope/mylib';",
+    );
+
+    // 2. 外部ライブラリの型がインライン展開されていないことを確認
+    expect(writtenContent).not.toContain('export interface MyType');
+
+    // 3. ServerScriptsで型が正しく使用されていることを確認
+    expect(writtenContent).toContain('getMyValue(data: MyType): string;');
+  });
+
+  it('@typesパッケージの型を実際のパッケージ名でインポートすること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    // @types/lodash の型定義をシミュレート
+    project.createSourceFile(
+      '/project/node_modules/@types/lodash/index.d.ts',
+      `export interface Dictionary<T> { [key: string]: T; }`,
+    );
+    // srcDir内で@typesパッケージの型を使用
+    project.createSourceFile(
+      '/project/src/utils.ts',
+      `import { Dictionary } from 'lodash';
+export function getDict(d: Dictionary<string>): Dictionary<string> { return d; }`,
+    );
+    (Project as Mock).mockReturnValue(project);
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes(opts);
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // 1. @types/lodashではなく、lodashからインポートされていることを確認
+    expect(writtenContent).toContain(
+      "import type { Dictionary } from 'lodash';",
+    );
+    expect(writtenContent).not.toContain('@types/lodash');
+
+    // 2. ServerScriptsで型が正しく使用されていることを確認
+    expect(writtenContent).toContain(
+      'getDict(d: Dictionary<string>): Dictionary<string>;',
     );
   });
 });
