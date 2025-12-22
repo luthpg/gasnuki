@@ -239,39 +239,74 @@ export const generateAppsScriptTypes = async ({
       if (foundSymbols.has(aliasSymbol)) {
         return;
       }
+
+      // 外部シンボルチェック (Alias)
+      const declarations = aliasSymbol.getDeclarations();
+      if (declarations.length > 0) {
+        const sourceFilePath = declarations[0].getSourceFile().getFilePath();
+        const isNodeModules = sourceFilePath.includes('node_modules');
+        // プロジェクト固有のパス判定ロジックがあればここに追加
+        if (isNodeModules) {
+          foundSymbols.add(aliasSymbol);
+          return; // 探索終了
+        }
+      }
       foundSymbols.add(aliasSymbol);
+      // Alias Typeの引数のみを探索 (再帰防止のため underlying properties は見ない)
       for (const typeArg of type.getAliasTypeArguments()) {
         collectSymbolsFromType(typeArg, foundSymbols);
       }
+      // Do NOT return here. Type Aliases for branded types (intersections) need their underlying properties checked.
+      // Already processed alias symbol is guarded by foundSymbols check above.
     }
-
+    // 2. Symbol Check & Property Traversal
     const symbol = type.getSymbol();
-    if (symbol && !foundSymbols.has(symbol)) {
-      foundSymbols.add(symbol);
-      if (type.isObject()) {
-        for (const prop of type.getProperties()) {
-          const propDecl = prop.getDeclarations()[0];
-          if (propDecl) {
-            // Check for ComputedPropertyName (e.g. [__brand])
-            const compilerNode = propDecl.compilerNode;
-            if (
-              // @ts-expect-error - avoiding full type checks for perf, checking kind directly
-              compilerNode.name &&
-              // @ts-expect-error - avoiding full type checks for perf, checking kind directly
-              compilerNode.name.kind === SyntaxKind.ComputedPropertyName
-            ) {
-              // @ts-expect-error - we know it has expression because it is ComputedPropertyName
-              const expression = propDecl.getNameNode().getExpression();
-              const symbol = expression.getSymbol();
-              if (symbol && !foundSymbols.has(symbol)) {
-                foundSymbols.add(symbol);
-              }
-            }
-            collectSymbolsFromType(propDecl.getType(), foundSymbols);
+    let shouldTraverseProperties = true;
+
+    if (symbol) {
+      if (foundSymbols.has(symbol)) {
+        // Previously processed symbol
+        shouldTraverseProperties = false;
+      } else {
+        foundSymbols.add(symbol);
+        // Check if external
+        const declarations = symbol.getDeclarations();
+        if (declarations.length > 0) {
+          const sourceFilePath = declarations[0].getSourceFile().getFilePath();
+          if (sourceFilePath.includes('node_modules')) {
+            shouldTraverseProperties = false;
           }
         }
       }
     }
+
+    // Traverse properties if internal or anonymous (no symbol)
+    if (shouldTraverseProperties && type.isObject()) {
+      for (const prop of type.getProperties()) {
+        const propDecl = prop.getDeclarations()[0];
+        if (propDecl) {
+          // Check for ComputedPropertyName (e.g. [__brand])
+          const compilerNode = propDecl.compilerNode;
+          if (
+            // @ts-expect-error - avoiding full type checks for perf, checking kind directly
+            compilerNode.name &&
+            // @ts-expect-error - avoiding full type checks for perf, checking kind directly
+            compilerNode.name.kind === SyntaxKind.ComputedPropertyName
+          ) {
+            // @ts-expect-error - we know it has expression because it is ComputedPropertyName
+            const expression = propDecl.getNameNode().getExpression();
+            const symbol = expression.getSymbol();
+            if (symbol && !foundSymbols.has(symbol)) {
+              foundSymbols.add(symbol);
+            }
+          }
+          collectSymbolsFromType(propDecl.getType(), foundSymbols);
+        }
+      }
+    }
+
+    // Type Arguments, Union, Intersectionの探索
+    // 外部型であっても、ジェネリック引数（例: Array<InternalType>）は探索する必要がある
     for (const typeArg of type.getTypeArguments()) {
       collectSymbolsFromType(typeArg, foundSymbols);
     }
@@ -421,24 +456,25 @@ export const generateAppsScriptTypes = async ({
         importsMap.set(modulePath, new Set());
       }
       importsMap.get(modulePath)?.add(symbolName);
-    } else {
-      // If it's an internal type (but not directly exported), inline it
-      let declText = declaration.getText();
-
-      // For VariableDeclaration (like `declare const __brand: unique symbol`),
-      // we need the parent VariableStatement to include keywords like 'declare', 'const', 'export'.
-      if (declaration.getKind() === SyntaxKind.VariableDeclaration) {
-        const variableStatement = declaration.getParent()?.getParent();
-        if (
-          variableStatement &&
-          variableStatement.getKind() === SyntaxKind.VariableStatement
-        ) {
-          declText = variableStatement.getText();
-        }
-      }
-
-      inlineDefinitions.set(symbolName, declText);
+      continue;
     }
+
+    // If it's an internal type (but not directly exported), inline it
+    let declText = declaration.getText();
+
+    // For VariableDeclaration (like `declare const __brand: unique symbol`),
+    // we need the parent VariableStatement to include keywords like 'declare', 'const', 'export'.
+    if (declaration.getKind() === SyntaxKind.VariableDeclaration) {
+      const variableStatement = declaration.getParent()?.getParent();
+      if (
+        variableStatement &&
+        variableStatement.getKind() === SyntaxKind.VariableStatement
+      ) {
+        declText = variableStatement.getText();
+      }
+    }
+
+    inlineDefinitions.set(symbolName, declText);
 
     // Add its own dependencies to the processing queue
     for (const descendant of declaration.getDescendantsOfKind(
