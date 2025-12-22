@@ -243,7 +243,6 @@ export const generateAppsScriptTypes = async ({
       for (const typeArg of type.getAliasTypeArguments()) {
         collectSymbolsFromType(typeArg, foundSymbols);
       }
-      return;
     }
 
     const symbol = type.getSymbol();
@@ -253,6 +252,21 @@ export const generateAppsScriptTypes = async ({
         for (const prop of type.getProperties()) {
           const propDecl = prop.getDeclarations()[0];
           if (propDecl) {
+            // Check for ComputedPropertyName (e.g. [__brand])
+            const compilerNode = propDecl.compilerNode;
+            if (
+              // @ts-expect-error - avoiding full type checks for perf, checking kind directly
+              compilerNode.name &&
+              // @ts-expect-error - avoiding full type checks for perf, checking kind directly
+              compilerNode.name.kind === SyntaxKind.ComputedPropertyName
+            ) {
+              // @ts-expect-error - we know it has expression because it is ComputedPropertyName
+              const expression = propDecl.getNameNode().getExpression();
+              const symbol = expression.getSymbol();
+              if (symbol && !foundSymbols.has(symbol)) {
+                foundSymbols.add(symbol);
+              }
+            }
             collectSymbolsFromType(propDecl.getType(), foundSymbols);
           }
         }
@@ -409,7 +423,20 @@ export const generateAppsScriptTypes = async ({
       importsMap.get(modulePath)?.add(symbolName);
     } else {
       // If it's an internal type (but not directly exported), inline it
-      const declText = declaration.getText();
+      let declText = declaration.getText();
+
+      // For VariableDeclaration (like `declare const __brand: unique symbol`),
+      // we need the parent VariableStatement to include keywords like 'declare', 'const', 'export'.
+      if (declaration.getKind() === SyntaxKind.VariableDeclaration) {
+        const variableStatement = declaration.getParent()?.getParent();
+        if (
+          variableStatement &&
+          variableStatement.getKind() === SyntaxKind.VariableStatement
+        ) {
+          declText = variableStatement.getText();
+        }
+      }
+
       inlineDefinitions.set(symbolName, declText);
     }
 
