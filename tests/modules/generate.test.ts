@@ -747,4 +747,79 @@ export function processMutual(a: MutualA): MutualA {
     );
     expect(writtenContent).toContain('processMutual(a: MutualA): MutualA;');
   });
+
+  it('Brand型（unique symbolを使った型）が正しく処理されること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+
+    // Brand型の定義
+    project.createSourceFile(
+      '/src/brand-types.ts',
+      `declare const __brand: unique symbol;
+
+// T型の情報を持ったJSON文字列型
+export type JsonString<T> = string & { [__brand]: T };
+
+// ユーザーID型（brand型）
+export type UserId = string & { [__brand]: 'UserId' };
+
+// 日付文字列型（brand型）
+export type DateString = string & { [__brand]: Date };`,
+    );
+
+    // Brand型を使用する関数
+    project.createSourceFile(
+      '/src/json-utils.ts',
+      `import { JsonString, UserId, DateString } from './brand-types';
+
+export interface User {
+  id: UserId;
+  name: string;
+  createdAt: DateString;
+}
+
+export function serialize<T>(data: T): JsonString<T> {
+  return JSON.stringify(data) as JsonString<T>;
+}
+
+export function deserialize<T>(json: JsonString<T>): T {
+  return JSON.parse(json);
+}
+
+export function getUserId(id: UserId): UserId {
+  return id;
+}`,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // 1. Brand型の定義が正しく出力されていることを確認
+    // unique symbol の declare const が出力されることを確認
+    expect(writtenContent).toContain('declare const __brand: unique symbol;');
+    expect(writtenContent).toContain(
+      'export type JsonString<T> = string & { [__brand]: T };',
+    );
+    expect(writtenContent).toContain(
+      "export type UserId = string & { [__brand]: 'UserId' };",
+    );
+    expect(writtenContent).toContain(
+      'export type DateString = string & { [__brand]: Date };',
+    );
+
+    // 2. Brand型を使った interface が正しく出力されていることを確認
+    expect(writtenContent).toContain('export interface User {');
+    expect(writtenContent).toContain('id: UserId;');
+    expect(writtenContent).toContain('createdAt: DateString;');
+
+    // 3. Brand型を使った関数シグネチャが正しく出力されていることを確認
+    expect(writtenContent).toContain('serialize<T>(data: T): JsonString<T>;');
+    expect(writtenContent).toContain('deserialize<T>(json: JsonString<T>): T;');
+    expect(writtenContent).toContain('getUserId(id: UserId): UserId;');
+
+    // 4. __brand シンボルがインポートされていないことを確認
+    expect(writtenContent).not.toContain('import type { __brand }');
+  });
 });
