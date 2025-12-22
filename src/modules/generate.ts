@@ -233,7 +233,20 @@ export const generateAppsScriptTypes = async ({
     type: Type,
     foundSymbols: Set<import('ts-morph').Symbol>,
   ) => {
-    const symbol = type.getAliasSymbol() ?? type.getSymbol();
+    // 1. Alias Symbol (Type Alias) の処理
+    const aliasSymbol = type.getAliasSymbol();
+    if (aliasSymbol) {
+      if (foundSymbols.has(aliasSymbol)) {
+        return;
+      }
+      foundSymbols.add(aliasSymbol);
+      for (const typeArg of type.getAliasTypeArguments()) {
+        collectSymbolsFromType(typeArg, foundSymbols);
+      }
+      return;
+    }
+
+    const symbol = type.getSymbol();
     if (symbol && !foundSymbols.has(symbol)) {
       foundSymbols.add(symbol);
       if (type.isObject()) {
