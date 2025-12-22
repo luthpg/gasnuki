@@ -70,7 +70,19 @@ const getInterfaceMethodDefinition_ = (
       jsDocString = `${firstDoc.getFullText().trim()}\n`;
     }
   }
-  return `${jsDocString}${name}${typeParamsString}(${parameters}): ${returnType};`;
+
+  // Helper to strip import("...") from types
+  const cleanType = (t: string) => t.replace(/import\(.*?\)\./g, '');
+
+  const cleanedReturnType = cleanType(returnType);
+  const cleanedParameters = parameters.replace(
+    /:\s*([^,;)]+)/g,
+    (_match, p1) => {
+      return `: ${cleanType(p1)}`;
+    },
+  );
+
+  return `${jsDocString}${name}${typeParamsString}(${cleanedParameters}): ${cleanedReturnType};`;
 };
 
 export const SIMPLE_TRIGGER_FUNCTION_NAMES = [
@@ -244,20 +256,26 @@ export const generateAppsScriptTypes = async ({
       const declarations = aliasSymbol.getDeclarations();
       if (declarations.length > 0) {
         const sourceFilePath = declarations[0].getSourceFile().getFilePath();
-        const isNodeModules = sourceFilePath.includes('node_modules');
-        // プロジェクト固有のパス判定ロジックがあればここに追加
-        if (isNodeModules) {
+        const isExternal =
+          sourceFilePath.includes('node_modules') ||
+          (!sourceFilePath
+            .replace(/\\/g, '/')
+            .startsWith(absoluteSrcDir.replace(/\\/g, '/')) &&
+            !sourceFilePath
+              .replace(/\\/g, '/')
+              .startsWith(path.join(projectPath, srcDir).replace(/\\/g, '/')));
+
+        if (isExternal) {
           foundSymbols.add(aliasSymbol);
-          return; // 探索終了
+          // 外部（パッケージまたは監視外プロジェクトファイル）なら、
+          // その中身のプロパティまでは追わない。
+          // ただし、ジェネリック引数は後続のコードで追う。
+          for (const typeArg of type.getAliasTypeArguments()) {
+            collectSymbolsFromType(typeArg, foundSymbols);
+          }
+          return; // プロパティ探索スキップ
         }
       }
-      foundSymbols.add(aliasSymbol);
-      // Alias Typeの引数のみを探索 (再帰防止のため underlying properties は見ない)
-      for (const typeArg of type.getAliasTypeArguments()) {
-        collectSymbolsFromType(typeArg, foundSymbols);
-      }
-      // Do NOT return here. Type Aliases for branded types (intersections) need their underlying properties checked.
-      // Already processed alias symbol is guarded by foundSymbols check above.
     }
     // 2. Symbol Check & Property Traversal
     const symbol = type.getSymbol();
@@ -273,7 +291,18 @@ export const generateAppsScriptTypes = async ({
         const declarations = symbol.getDeclarations();
         if (declarations.length > 0) {
           const sourceFilePath = declarations[0].getSourceFile().getFilePath();
-          if (sourceFilePath.includes('node_modules')) {
+          const isExternal =
+            sourceFilePath.includes('node_modules') ||
+            (!sourceFilePath
+              .replace(/\\/g, '/')
+              .startsWith(absoluteSrcDir.replace(/\\/g, '/')) &&
+              !sourceFilePath
+                .replace(/\\/g, '/')
+                .startsWith(
+                  path.join(projectPath, srcDir).replace(/\\/g, '/'),
+                ));
+
+          if (isExternal) {
             shouldTraverseProperties = false;
           }
         }
@@ -393,13 +422,27 @@ export const generateAppsScriptTypes = async ({
       continue;
     }
 
-    if (
-      declaration.getKind() === SyntaxKind.MethodSignature ||
-      declaration.getKind() === SyntaxKind.PropertySignature ||
-      declaration.getKind() === SyntaxKind.MethodDeclaration ||
-      declaration.getKind() === SyntaxKind.PropertyDeclaration
-    ) {
-      continue;
+    // Only inline specific node kinds that represent types or 'unique symbol'
+    const allowedKinds = [
+      SyntaxKind.InterfaceDeclaration,
+      SyntaxKind.TypeAliasDeclaration,
+      SyntaxKind.EnumDeclaration,
+      SyntaxKind.ClassDeclaration,
+      SyntaxKind.ModuleDeclaration,
+    ];
+
+    if (!allowedKinds.includes(declaration.getKind())) {
+      // Special case: VariableDeclaration is only allowed for unique symbol (branded types)
+      if (declaration.getKind() === SyntaxKind.VariableDeclaration) {
+        const typeNode = (declaration as VariableDeclaration).getTypeNode();
+        const isUniqueSymbol = typeNode?.getText().includes('unique symbol');
+        if (!isUniqueSymbol) {
+          continue;
+        }
+      } else {
+        // Skip all other kinds (PropertyAssignment, etc.)
+        continue;
+      }
     }
 
     const sourceFile = declaration.getSourceFile();
@@ -410,10 +453,21 @@ export const generateAppsScriptTypes = async ({
       continue;
     }
 
-    // Handle node_modules types: generate import statement only if directly used in function signatures
-    if (sourceFilePath.includes('node_modules')) {
-      // Only generate import for types directly used in function signatures
-      if (functionSignatureSymbols.has(symbol)) {
+    const isExternal =
+      sourceFilePath.includes('node_modules') ||
+      (!sourceFilePath
+        .replace(/\\/g, '/')
+        .startsWith(absoluteSrcDir.replace(/\\/g, '/')) &&
+        !sourceFilePath
+          .replace(/\\/g, '/')
+          .startsWith(path.join(projectPath, srcDir).replace(/\\/g, '/')));
+
+    if (isExternal) {
+      if (sourceFilePath.includes('node_modules')) {
+        // node_modulesの中身は、既に functionSignatureSymbols でチェックしたもののみ出力対象
+        if (!functionSignatureSymbols.has(symbol)) {
+          continue;
+        }
         const packageName = getPackageNameFromNodeModulesPath_(sourceFilePath);
         if (packageName) {
           processedSymbols.add(symbolName);
@@ -422,42 +476,30 @@ export const generateAppsScriptTypes = async ({
           }
           importsMap.get(packageName)?.add(symbolName);
         }
+      } else {
+        // プロジェクト内の外部ファイル
+        let modulePath = path
+          .relative(absoluteOutDir, sourceFilePath)
+          .replace(/\\/g, '/');
+        modulePath = modulePath.replace(/\.(d\.)?ts$/, '');
+        if (modulePath.endsWith('/index')) {
+          modulePath = modulePath.slice(0, -6);
+        }
+        if (modulePath === 'index' || modulePath === '') {
+          modulePath = '.';
+        }
+        if (!modulePath.startsWith('.')) {
+          modulePath = `./${modulePath}`;
+        }
+        if (!importsMap.has(modulePath)) {
+          importsMap.set(modulePath, new Set());
+        }
+        importsMap.get(modulePath)?.add(symbolName);
       }
       continue;
     }
 
     processedSymbols.add(symbolName);
-
-    // Check if the symbol is defined outside of srcDir
-    const isExternal =
-      !sourceFilePath
-        .replace(/\\/g, '/')
-        .startsWith(absoluteSrcDir.replace(/\\/g, '/')) &&
-      !sourceFilePath
-        .replace(/\\/g, '/')
-        .startsWith(path.join(projectPath, srcDir).replace(/\\/g, '/'));
-
-    if (isExternal) {
-      // If it's an external type, generate an import statement
-      let modulePath = path
-        .relative(absoluteOutDir, sourceFilePath)
-        .replace(/\\/g, '/');
-      modulePath = modulePath.replace(/\.(d\.)?ts$/, '');
-      if (modulePath.endsWith('/index')) {
-        modulePath = modulePath.slice(0, -6);
-      }
-      if (modulePath === 'index' || modulePath === '') {
-        modulePath = '.';
-      }
-      if (!modulePath.startsWith('.')) {
-        modulePath = `./${modulePath}`;
-      }
-      if (!importsMap.has(modulePath)) {
-        importsMap.set(modulePath, new Set());
-      }
-      importsMap.get(modulePath)?.add(symbolName);
-      continue;
-    }
 
     // If it's an internal type (but not directly exported), inline it
     let declText = declaration.getText();

@@ -528,6 +528,7 @@ export function processExternal(data: ExternalType): ExternalType { return data;
     expect(writtenContent).toContain(
       'processExternal(data: ExternalType): ExternalType;',
     );
+    expect(writtenContent).not.toContain('import("');
   });
 
   it('関数の返り値で利用される外部の型を正しくインポートすること', async () => {
@@ -578,6 +579,7 @@ export const getInferredFromFunc = () => getExplicit();
     expect(writtenContent).toContain(
       'getInferredFromFunc(): ExternalReturnValue;',
     );
+    expect(writtenContent).not.toContain('import("');
   });
 
   it('外部ライブラリ（node_modules）の型を正しくインポートすること', async () => {
@@ -821,5 +823,78 @@ export function getUserId(id: UserId): UserId {
 
     // 4. __brand シンボルがインポートされていないことを確認
     expect(writtenContent).not.toContain('import type { __brand }');
+  });
+
+  it('内部のオブジェクトリテラルを型としてインライン化しないこと', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      '/src/internal_result.ts',
+      `
+      const InternalResult = { success: true, data: "ok" };
+      export type MyResult = typeof InternalResult;
+      `,
+    );
+    project.createSourceFile(
+      '/src/main_result.ts',
+      `
+      import { MyResult } from './internal_result';
+      export function getResult(): MyResult {
+        return { success: true, data: "ok" };
+      }
+      `,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // `{ success: true, data: "ok" }` がトップレベルの型定義として含まれていないことを確認
+    expect(writtenContent).not.toMatch(/^\s*\{\s*success:\s*true/m);
+
+    // ServerScriptsに正しく含まれていることを確認
+    expect(writtenContent).toContain('getResult(): MyResult;');
+  });
+
+  it('オブジェクトリテラルのプロパティ（PropertyAssignment）を型としてインライン化しないこと', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      '/src/lib/json.ts',
+      'export function serialize(data: any): any { return data; }',
+    );
+    project.createSourceFile(
+      '/src/response.ts',
+      `
+      import { serialize } from './lib/json';
+      export const response = {
+        success: <T>(data: T) => serialize({ success: true, data }),
+        error: (message: string) =>
+          serialize({
+            success: false,
+            error: message,
+          }),
+      };
+      
+      export type SuccessFn = typeof response.success;
+      `,
+    );
+    project.createSourceFile(
+      '/src/main_user_response.ts',
+      `
+      import { SuccessFn } from './response';
+      export function handleSuccess(f: SuccessFn): void {}
+      `,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // `{ success: true, data }` などのリテラルがトップレベルに含まれていないことを確認
+    expect(writtenContent).not.toMatch(/^\s*success:\s*<T>/m);
+    expect(writtenContent).not.toMatch(/^\s*success:\s*true/m);
   });
 });
