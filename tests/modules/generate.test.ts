@@ -679,4 +679,72 @@ export function getDict(d: Dictionary<string>): Dictionary<string> { return d; }
       'getDict(d: Dictionary<string>): Dictionary<string>;',
     );
   });
+
+  it('Recursive Type Aliasの無限再帰による無限ループが発生しないこと', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+
+    // 再帰的な型エイリアスを定義
+    project.createSourceFile(
+      '/src/recursive-types.ts',
+      `export type TreeNode = {
+  value: number;
+  children: TreeNode[];
+};
+
+export type LinkedListNode = {
+  value: string;
+  next: LinkedListNode | null;
+};
+
+export type MutualA = {
+  b: MutualB;
+};
+
+export type MutualB = {
+  a: MutualA;
+};`,
+    );
+
+    // 再帰的な型を使用する関数を定義
+    project.createSourceFile(
+      '/src/recursive-funcs.ts',
+      `import { TreeNode, LinkedListNode, MutualA } from './recursive-types';
+
+export function processTree(node: TreeNode): TreeNode {
+  return node;
+}
+
+export function processList(node: LinkedListNode): LinkedListNode {
+  return node;
+}
+
+export function processMutual(a: MutualA): MutualA {
+  return a;
+}`,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+
+    // この関数が無限ループに陥らずに完了することを確認
+    await expect(
+      generateAppsScriptTypes({ ...opts, projectInstance: project }),
+    ).resolves.not.toThrow();
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // 1. 再帰的な型が正しく出力されていることを確認
+    expect(writtenContent).toContain('export type TreeNode =');
+    expect(writtenContent).toContain('children: TreeNode[];');
+    expect(writtenContent).toContain('export type LinkedListNode =');
+    expect(writtenContent).toContain('next: LinkedListNode | null;');
+    expect(writtenContent).toContain('export type MutualA =');
+    expect(writtenContent).toContain('export type MutualB =');
+
+    // 2. 関数シグネチャが正しく出力されていることを確認
+    expect(writtenContent).toContain('processTree(node: TreeNode): TreeNode;');
+    expect(writtenContent).toContain(
+      'processList(node: LinkedListNode): LinkedListNode;',
+    );
+    expect(writtenContent).toContain('processMutual(a: MutualA): MutualA;');
+  });
 });
