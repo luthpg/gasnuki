@@ -1,3 +1,4 @@
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { consola } from 'consola';
@@ -15,6 +16,28 @@ import {
 } from 'ts-morph';
 import type { GenerateOptions } from '..';
 import { text as clientsideText } from './clientside.json';
+
+// Module-level cache to store hashes
+const generationCache = new Map<string, string>();
+
+/**
+ * Computes a hash of the source files' content and paths.
+ */
+const computeSourceHash = (
+  sourceFiles: import('ts-morph').SourceFile[],
+): string => {
+  const hash = crypto.createHash('md5');
+  // Sort files by path to ensure deterministic order
+  const sortedFiles = [...sourceFiles].sort((a, b) =>
+    a.getFilePath().localeCompare(b.getFilePath()),
+  );
+
+  for (const file of sortedFiles) {
+    hash.update(file.getFilePath());
+    hash.update(file.getFullText());
+  }
+  return hash.digest('hex');
+};
 
 const getInterfaceMethodDefinition_ = (
   name: string,
@@ -139,7 +162,11 @@ export const generateAppsScriptTypes = async ({
   outDir,
   outputFile,
   projectInstance,
-}: Omit<GenerateOptions, 'watch'> & { projectInstance?: Project }) => {
+  cache = true, // Default to true
+}: Omit<GenerateOptions, 'watch'> & {
+  projectInstance?: Project;
+  cache?: boolean;
+}) => {
   const absoluteSrcDir = path.resolve(projectPath, srcDir);
   const absoluteOutDir = path.resolve(projectPath, outDir);
   const absoluteOutputFile = path.resolve(absoluteOutDir, outputFile);
@@ -165,6 +192,25 @@ export const generateAppsScriptTypes = async ({
 
   const sourceFiles = project.getSourceFiles();
   consola.info(`Found ${sourceFiles.length} source file(s).`);
+
+  if (cache) {
+    const currentHash = computeSourceHash(sourceFiles);
+    // Cache key based on output file absolute path
+    const cacheKey = absoluteOutputFile;
+
+    if (
+      generationCache.get(cacheKey) === currentHash &&
+      fs.existsSync(absoluteOutputFile)
+    ) {
+      consola.success(
+        `Skipping generation: Source files have not changed (Hash: ${currentHash.slice(0, 8)}).`,
+      );
+      return;
+    }
+
+    // Update cache after successful check (but write happens at end)
+    // We'll set it at the end of function
+  }
 
   const methodDefinitions: string[] = [];
   const exportedDeclarations: (
@@ -625,4 +671,13 @@ export const generateAppsScriptTypes = async ({
 
   // 5. Write the final content to the output file
   fs.writeFileSync(absoluteOutputFile, outputContent);
+
+  if (cache) {
+    // Re-compute hash to be safe (or pass from above if immutable)
+    // Since sourceFiles shouldn't have changed during generation, we can re-compute or store.
+    // For simplicity and correctness, let's re-compute or capture above.
+    // Actually, capturing above is better.
+    const currentHash = computeSourceHash(sourceFiles);
+    generationCache.set(absoluteOutputFile, currentHash);
+  }
 };

@@ -74,6 +74,7 @@ If you are using Vite, you can integrate `gasnuki` as a plugin to automatically 
       plugins: [
         gasnuki({
           /* options */
+          // cache: true, // Default: Enable/Disable smart caching
         }),
       ],
     });

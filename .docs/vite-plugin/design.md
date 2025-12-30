@@ -45,9 +45,9 @@ graph TD
 
 ### 2.2. 処理フロー
 
-1.  **設定解決**: Vite開発サーバー起動時、`configResolved` フックが発火。Viteの設定情報 (`config.root`) を元にプロジェクトルートを特定し、プラグインオプション、`gasnuki.config.ts`、デフォルト値をマージして最終的な設定を確定する。
-2.  **初回生成**: `configureServer` フックで、開発サーバーの起動処理の一環として、型定義の初回生成 (`generateAppsScriptTypes`) を実行する。
-3.  **ファイル監視と再生成**: 同じく `configureServer` フック内で、Viteのファイルウォッチャー (`server.watcher`) を利用して、設定されたソースディレクトリ (`srcDir`) を監視する。ファイルの追加・変更・削除を検知すると、再度 `generateAppsScriptTypes` を実行して型定義を更新する。
+1. **設定解決**: Vite開発サーバー起動時、`configResolved` フックが発火。Viteの設定情報 (`config.root`) を元にプロジェクトルートを特定し、プラグインオプション、`gasnuki.config.ts`、デフォルト値をマージして最終的な設定を確定する。
+2. **初回生成**: `configureServer` フックで、開発サーバーの起動処理の一環として、型定義の初回生成 (`generateAppsScriptTypes`) を実行する。
+3. **ファイル監視と再生成**: 同じく `configureServer` フック内で、Viteのファイルウォッチャー (`server.watcher`) を利用して、設定されたソースディレクトリ (`srcDir`) を監視する。ファイルの追加・変更・削除を検知すると、再度 `generateAppsScriptTypes` を実行して型定義を更新する。
 
 ## 3. ファイル構成
 
@@ -149,19 +149,23 @@ export function gasnuki(options?: UserConfig): Plugin {
 
 ### 4.2. 設定解決ロジック (`configResolved` フック内)
 
-1.  `config.root` からプロジェクトのルートパスを取得する。
-2.  既存の `loadConfig(projectRoot)` を呼び出し、`gasnuki.config.ts` の内容を読み込む。
-3.  以下の優先順位で設定をマージし、`gasnukiOptions` として内部に保持する。
-    1.  **高**: `vite.config.ts` でプラグインに渡された `options`
-    2.  **中**: `gasnuki.config.ts` の内容
-    3.  **低**: プラグイン内部で定義されたデフォルト値 (`srcDir`, `outDir`, `outputFile`)
+1. `config.root` からプロジェクトのルートパスを取得する。
+2. 既存の `loadConfig(projectRoot)` を呼び出し、`gasnuki.config.ts` の内容を読み込む。
+3. 以下の優先順位で設定をマージし、`gasnukiOptions` として内部に保持する。
+    1. **高**: `vite.config.ts` でプラグインに渡された `options`
+    2. **中**: `gasnuki.config.ts` の内容
+    3. **低**: プラグイン内部で定義されたデフォルト値 (`srcDir`, `outDir`, `outputFile`)
 
 ### 4.3. ファイル監視ロジック (`configureServer` フック内)
 
--   Viteの `server.watcher` を利用することで、`chokidar` を直接依存関係に追加する必要はない。
--   `on('all', callback)` を使用し、ファイルの追加(`add`)、変更(`change`)、削除(`unlink`) すべてのイベントを捕捉する。
--   イベントのコールバック内で、変更されたファイルパスが `gasnukiOptions.srcDir` 内に存在するかをチェックし、関係のないファイルの変更で再生成が走らないようにする。
--   頻繁なファイル変更による過剰な再生成を防ぐため、300ms程度のデバウンス処理を実装する。
+- Viteの `server.watcher` を利用することで、`chokidar` を直接依存関係に追加する必要はない。
+- `on('all', callback)` を使用し、ファイルの追加(`add`)、変更(`change`)、削除(`unlink`) すべてのイベントを捕捉する。
+- イベントのコールバック内で、変更されたファイルパスが `gasnukiOptions.srcDir` 内に存在するかをチェックし、関係のないファイルの変更で再生成が走らないようにする。
+- 頻繁なファイル変更による過剰な再生成を防ぐため、300ms程度のデバウンス処理を実装する。
+- **キャッシュ機構**:
+  - `generateAppsScriptTypes` 内部にモジュールレベルのキャッシュ (`generationCache`) を実装する。
+  - ソースファイルのパスと内容に基づくハッシュ値を計算し、前回の生成時から変更がない場合は生成処理をスキップする。
+  - ユーザーは `cache: false` オプションを指定することで、このキャッシュ機構を無効化できる（デフォルトは有効）。
 
 ## 5. データ構造・インターフェース
 
@@ -216,5 +220,5 @@ sequenceDiagram
 
 ## 7. その他考慮事項
 
--   **エラー表示**: `generateAppsScriptTypes` が例外をスローした場合、`consola.error` を使用してViteのコンソールにスタックトレースを含む詳細なエラー情報を出力する。これにより、開発者はエラーの原因を特定しやすくなる。
--   **テスト**: Viteプラグインの動作を検証するための単体テスト・結合テストを追加する。`vite` を `devDependencies` に追加し、テスト環境内でViteサーバーをプログラム的に起動してプラグインの各フックが正しく動作するかを確認する。
+- **エラー表示**: `generateAppsScriptTypes` が例外をスローした場合、`consola.error` を使用してViteのコンソールにスタックトレースを含む詳細なエラー情報を出力する。これにより、開発者はエラーの原因を特定しやすくなる。
+- **テスト**: Viteプラグインの動作を検証するための単体テスト・結合テストを追加する。`vite` を `devDependencies` に追加し、テスト環境内でViteサーバーをプログラム的に起動してプラグインの各フックが正しく動作するかを確認する。

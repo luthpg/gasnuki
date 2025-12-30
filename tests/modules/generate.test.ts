@@ -8,7 +8,9 @@ vi.mock('node:fs', () => ({
   mkdirSync: vi.fn(),
   writeFileSync: vi.fn(),
 }));
-vi.mock('consola', () => ({ consola: { info: vi.fn(), error: vi.fn() } }));
+vi.mock('consola', () => ({
+  consola: { info: vi.fn(), error: vi.fn(), success: vi.fn() },
+}));
 
 // pathは実際のモジュールを利用する
 vi.mock('node:path', async () => {
@@ -29,8 +31,10 @@ describe('generateAppsScriptTypes', () => {
     outputFile: 'appsscript.ts',
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const { existsSync } = await import('node:fs');
+    (existsSync as Mock).mockReturnValue(true);
   });
 
   it('テストファイルが解析対象から除外されること', async () => {
@@ -896,5 +900,130 @@ export function getUserId(id: UserId): UserId {
     // `{ success: true, data }` などのリテラルがトップレベルに含まれていないことを確認
     expect(writtenContent).not.toMatch(/^\s*success:\s*<T>/m);
     expect(writtenContent).not.toMatch(/^\s*success:\s*true/m);
+  });
+
+  it('キャッシュが有効な場合、ソースファイルに変更がなければ生成をスキップすること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile('/src/test.ts', 'export function test() {}');
+
+    const { writeFileSync, existsSync } = await import('node:fs');
+    const { consola } = await import('consola');
+
+    (existsSync as Mock).mockReturnValue(true);
+
+    const testOpts = { ...opts, outputFile: 'appsscript_cache_1.ts' };
+
+    // 1回目: 生成実行
+    await generateAppsScriptTypes({
+      ...testOpts,
+      projectInstance: project,
+      cache: true,
+    });
+    expect(writeFileSync).toHaveBeenCalledTimes(1);
+
+    // 2回目: 同じソースで生成実行 -> スキップされるはず
+    (writeFileSync as Mock).mockClear();
+    await generateAppsScriptTypes({
+      ...testOpts,
+      projectInstance: project,
+      cache: true,
+    });
+
+    expect(writeFileSync).not.toHaveBeenCalled();
+    expect(consola.success).toHaveBeenCalledWith(
+      expect.stringContaining('Skipping generation'),
+    );
+  });
+
+  it('キャッシュが有効でも、ソースファイルに変更があれば再生成すること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    const sourceFile = project.createSourceFile(
+      '/src/test.ts',
+      'export function test() {}',
+    );
+
+    const { writeFileSync, existsSync } = await import('node:fs');
+    (existsSync as Mock).mockReturnValue(true);
+
+    const testOpts = { ...opts, outputFile: 'appsscript_cache_2.ts' };
+
+    // 1回目: 生成実行
+    await generateAppsScriptTypes({
+      ...testOpts,
+      projectInstance: project,
+      cache: true,
+    });
+    expect(writeFileSync).toHaveBeenCalledTimes(1);
+
+    // ソースファイルを変更
+    sourceFile.replaceWithText('export function test2() {}');
+
+    // 2回目: 変更後のソースで生成実行 -> 再生成されるはず
+    (writeFileSync as Mock).mockClear();
+    await generateAppsScriptTypes({
+      ...testOpts,
+      projectInstance: project,
+      cache: true,
+    });
+
+    expect(writeFileSync).toHaveBeenCalledTimes(1);
+  });
+
+  it('出力ファイルが存在しない場合はキャッシュがあっても再生成すること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile('/src/test.ts', 'export function test() {}');
+
+    const { writeFileSync, existsSync } = await import('node:fs');
+
+    const testOpts = { ...opts, outputFile: 'appsscript_cache_3.ts' };
+
+    // 1回目: 生成実行 (出力ファイルあり)
+    (existsSync as Mock).mockReturnValue(true);
+    await generateAppsScriptTypes({
+      ...testOpts,
+      projectInstance: project,
+      cache: true,
+    });
+    expect(writeFileSync).toHaveBeenCalledTimes(1);
+
+    // 2回目: 出力ファイルがない状態をシミュレート
+    (existsSync as Mock).mockReturnValue(false);
+    (writeFileSync as Mock).mockClear();
+
+    await generateAppsScriptTypes({
+      ...testOpts,
+      projectInstance: project,
+      cache: true,
+    });
+
+    expect(writeFileSync).toHaveBeenCalledTimes(1);
+  });
+
+  it('cache: false オプションでキャッシュを無効化できること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile('/src/test.ts', 'export function test() {}');
+
+    const { writeFileSync, existsSync } = await import('node:fs');
+    (existsSync as Mock).mockReturnValue(true);
+
+    const testOpts = { ...opts, outputFile: 'appsscript_cache_4.ts' };
+
+    // 1回目: 生成実行
+    await generateAppsScriptTypes({
+      ...testOpts,
+      projectInstance: project,
+      cache: true,
+    });
+    expect(writeFileSync).toHaveBeenCalledTimes(1);
+
+    // 2回目: cache: false で実行 -> スキップされずに再生成されるはず
+    (writeFileSync as Mock).mockClear();
+    await generateAppsScriptTypes({
+      ...testOpts,
+      projectInstance: project,
+      cache: false,
+    });
+
+    expect(writeFileSync).toHaveBeenCalledTimes(1);
   });
 });
