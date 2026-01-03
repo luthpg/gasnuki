@@ -22,6 +22,10 @@ export const generateTypes = async ({
   watch,
   cache,
 }: GenerateOptions) => {
+  if (cache === false) {
+    consola.info('Generation cache is disabled');
+  }
+
   const runGeneration = async (triggeredBy?: string) => {
     const reason = triggeredBy ? ` (${triggeredBy})` : '';
     consola.info(`Generating AppsScript types${reason}...`);

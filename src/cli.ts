@@ -66,13 +66,14 @@ export const runCli = async () => {
       'types',
     )
     .option('-f, --outputFile <file>', 'Output file name', 'appsscript.ts')
-    .option('-w, --watch', 'Watch for changes and re-generate types', false);
+    .option('-w, --watch', 'Watch for changes and re-generate types', false)
+    .option('--cache', 'Enable checking generation cache', true)
+    .option('--no-cache', 'Disable checking generation cache', true);
 
   await program.parseAsync(process.argv);
 };
 
 // Check if this module is the main entry point
-// @ts-expect-error
 const isMainModule = typeof require !== 'undefined' && require.main === module;
 // For ESM/Vite environments, simplistic check might be needed or assume it's called via bin
 if (isMainModule || process.argv[1] === import.meta.filename) {
