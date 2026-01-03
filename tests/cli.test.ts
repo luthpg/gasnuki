@@ -263,7 +263,7 @@ describe('cli', () => {
     expect(mockDescription).toHaveBeenCalled();
     expect(mockVersion).toHaveBeenCalled();
     expect(mockAction).toHaveBeenCalled();
-    expect(mockOption).toHaveBeenCalledTimes(5);
+    expect(mockOption).toHaveBeenCalledTimes(7);
     expect(mockParseAsync).toHaveBeenCalledWith(process.argv);
   });
 });
