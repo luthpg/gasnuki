@@ -21,7 +21,7 @@ describe('getPromisedServerScripts', () => {
     // globalThis.googleが未定義であることを保証
     (globalThis as any).google = undefined;
 
-    const result = getPromisedServerScripts<typeof mock>(mock);
+    const result = getPromisedServerScripts<typeof mock>({ mockupFunctions: mock });
     expect(result.foo).toBe(mock.foo);
   });
 
@@ -31,7 +31,7 @@ describe('getPromisedServerScripts', () => {
     // googleは存在するがscript.runが存在しない場合
     (globalThis as any).google = {};
 
-    const result = getPromisedServerScripts<typeof mock>(mock);
+    const result = getPromisedServerScripts<typeof mock>({ mockupFunctions: mock });
     expect(result.foo).toBe(mock.foo);
   });
 
@@ -207,7 +207,7 @@ describe('getPromisedServerScripts', () => {
       },
     };
 
-    const result = getPromisedServerScripts(mockupFunctions);
+    const result = getPromisedServerScripts({ mockupFunctions });
 
     // google.script.runが存在する場合、存在しないメソッドはエラーになる
     expect(() => result.customMethod()).toThrow(
@@ -223,7 +223,7 @@ describe('getPromisedServerScripts', () => {
     // google.script.runが存在しない
     (globalThis as any).google = undefined;
 
-    const result = getPromisedServerScripts(mockupFunctions);
+    const result = getPromisedServerScripts({ mockupFunctions });
 
     // customMethodはmockupFunctionsから取得される
     expect(result.customMethod).toBe(mockupFunctions.customMethod);
@@ -253,7 +253,7 @@ describe('getPromisedServerScripts', () => {
       },
     };
 
-    const result = getPromisedServerScripts(mockupFunctions);
+    const result = getPromisedServerScripts({ mockupFunctions });
 
     // existingMethodはgoogle.script.runから取得される（mockupFunctionsではない）
     expect(result.existingMethod).not.toBe(mockupFunctions.existingMethod);
@@ -276,7 +276,7 @@ describe('getPromisedServerScripts', () => {
       },
     };
 
-    const result = getPromisedServerScripts({});
+    const result = getPromisedServerScripts({ mockupFunctions: {} });
 
     expect(typeof result.testMethod).toBe('function');
     const promise = result.testMethod('test');
@@ -299,7 +299,7 @@ describe('getPromisedServerScripts', () => {
       },
     };
 
-    const result = getPromisedServerScripts(undefined);
+    const result = getPromisedServerScripts({ mockupFunctions: undefined });
 
     expect(typeof result.testMethod).toBe('function');
     const promise = result.testMethod('test');
@@ -384,10 +384,9 @@ describe('getPromisedServerScripts', () => {
       },
     };
 
-    const result = getPromisedServerScripts<{ jsonMethod: () => any }>(
-      undefined,
-      { parseJson: true },
-    );
+    const result = getPromisedServerScripts<{ jsonMethod: () => any }>({
+      parseJson: true,
+    });
     const promise = result.jsonMethod();
 
     const value = await promise;
@@ -413,10 +412,9 @@ describe('getPromisedServerScripts', () => {
       },
     };
 
-    const result = getPromisedServerScripts<{ textMethod: () => any }>(
-      undefined,
-      { parseJson: true },
-    );
+    const result = getPromisedServerScripts<{ textMethod: () => any }>({
+      parseJson: true,
+    });
     const value = await result.textMethod();
     expect(value).toBe('not a json string');
   });

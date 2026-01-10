@@ -6,4 +6,6 @@ export const mockupScripts: PartialScriptType<ServerScripts> = {
   getPerson: async () => JSON.stringify({ name: 'John', age: 15 } as Person),
 };
 
-export const serverScripts = getPromisedServerScripts<ServerScripts>(mockupScripts);
+export const serverScripts = getPromisedServerScripts<ServerScripts>({
+  mockupFunctions: mockupScripts,
+});

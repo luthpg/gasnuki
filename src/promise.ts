@@ -17,14 +17,20 @@ export type PromisedWithJson<T> = {
 export type PartialScriptType<T> = Partial<Promised<T>>;
 export type PartialScriptTypeWithJson<T> = Partial<PromisedWithJson<T>>;
 
+export type GetPromisedServerScriptsOptions<T, IsJson extends boolean = boolean> = {
+  mockupFunctions?: IsJson extends true
+    ? PartialScriptTypeWithJson<T>
+    : PartialScriptType<T>;
+  parseJson?: IsJson;
+};
+
 export function getPromisedServerScripts<
   T extends Record<string, (...args: any[]) => any> = Omit<
     typeof google.script.run,
     'withSuccessHandler' | 'withFailureHandler' | 'withUserObject'
   >,
 >(
-  mockupFunctions: PartialScriptTypeWithJson<T> | undefined,
-  options: { parseJson: true },
+  options: GetPromisedServerScriptsOptions<T, true>,
 ): PromisedWithJson<T>;
 
 export function getPromisedServerScripts<
@@ -33,8 +39,7 @@ export function getPromisedServerScripts<
     'withSuccessHandler' | 'withFailureHandler' | 'withUserObject'
   >,
 >(
-  mockupFunctions?: PartialScriptType<T>,
-  options?: { parseJson?: false },
+  options?: GetPromisedServerScriptsOptions<T, false>,
 ): Promised<T>;
 
 export function getPromisedServerScripts<
@@ -43,9 +48,10 @@ export function getPromisedServerScripts<
     'withSuccessHandler' | 'withFailureHandler' | 'withUserObject'
   >,
 >(
-  mockupFunctions: PartialScriptType<T> | PartialScriptTypeWithJson<T> = {},
-  options?: { parseJson?: boolean },
+  options: GetPromisedServerScriptsOptions<T> = {},
 ): Promised<T> | PromisedWithJson<T> {
+  const { mockupFunctions = {}, parseJson = false } = options;
+
   return new Proxy<
     Record<string, ((...arg: any[]) => Promise<any>) | undefined>
   >(mockupFunctions as any, {
@@ -60,7 +66,7 @@ export function getPromisedServerScripts<
         new Promise((resolve, reject) => {
           google.script.run
             .withSuccessHandler((res) => {
-              if (options?.parseJson && typeof res === 'string') {
+              if (parseJson && typeof res === 'string') {
                 try {
                   resolve(deserialize(res as any));
                 } catch {

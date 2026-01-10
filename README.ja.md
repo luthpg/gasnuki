@@ -169,7 +169,7 @@ const mockup: PartialScriptType<ServerScripts> = {
   // 他の関数も同様にモックできます
 };
 
-export const gas = getPromisedServerScripts<ServerScripts>(mockup);
+export const gas = getPromisedServerScripts<ServerScripts>({ mockup });
 ```
 
 ### 型安全な JSON パース (Optional)
@@ -178,14 +178,14 @@ export const gas = getPromisedServerScripts<ServerScripts>(mockup);
 
 `gasnuki` は、シリアライズ前の型情報を Branded Type (`JsonString<T>`) として保持することで、**`any` を介さない型安全な復元**を可能にします。
 
-`getPromisedServerScripts` の第2引数に `{ parseJson: true }` を指定すると、サーバー側で `serialize()` された戻り値を自動でデシリアライズし、`Date` オブジェクトも正しく復元します。
+`getPromisedServerScripts` のオプションに `{ parseJson: true }` を指定すると、サーバー側で `serialize()` された戻り値を自動でデシリアライズし、`Date` オブジェクトも正しく復元します。
 
 ```ts
 // サーバー側 (Apps Script)
 // const getAppData = () => serialize({ updatedAt: new Date(), user: 'Alice' });
 
 // クライアント側
-export const gas = getPromisedServerScripts<ServerScripts>(undefined, {
+export const gas = getPromisedServerScripts<ServerScripts>({
   parseJson: true
 });
 

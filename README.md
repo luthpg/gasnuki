@@ -169,7 +169,7 @@ const mockup: PartialScriptType<ServerScripts> = {
   // Other functions can be mocked similarly
 };
 
-export const gas = getPromisedServerScripts<ServerScripts>(mockup);
+export const gas = getPromisedServerScripts<ServerScripts>({ mockup });
 ```
 
 ### Type-Safe JSON Parsing (Optional)
@@ -185,7 +185,7 @@ By passing `{ parseJson: true }` as the second argument to `getPromisedServerScr
 // const getAppData = () => serialize({ updatedAt: new Date(), user: 'Alice' });
 
 // Client-side
-export const gas = getPromisedServerScripts<ServerScripts>(undefined, {
+export const gas = getPromisedServerScripts<ServerScripts>({
   parseJson: true
 });
 
