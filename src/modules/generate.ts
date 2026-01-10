@@ -7,6 +7,7 @@ import {
   type FunctionDeclaration,
   type FunctionExpression,
   type InterfaceDeclaration,
+  type Node,
   Project,
   SymbolFlags,
   SyntaxKind,
@@ -95,7 +96,10 @@ const getInterfaceMethodDefinition_ = (
   }
 
   // Helper to strip import("...") from types
-  const cleanType = (t: string) => t.replace(/import\(.*?\)\./g, '');
+  const cleanType = (t: string) =>
+    t
+      .replace(/import\(".*?"\)\.default\./g, '')
+      .replace(/import\(".*?"\)\./g, '');
 
   const cleanedReturnType = cleanType(returnType);
   const cleanedParameters = parameters.replace(
@@ -290,15 +294,130 @@ export const generateAppsScriptTypes = async ({
   const collectSymbolsFromType = (
     type: Type,
     foundSymbols: Set<import('ts-morph').Symbol>,
+    contextNode?: Node,
+    depth = 0,
+    isComponent = false, // Allow traversal of external components (union/intersection parts)
   ) => {
-    // 1. Alias Symbol (Type Alias) の処理
+    // -------------------------------------------------------------------------
+    // 0. Pre-emptive recursion for Container Types (Arrays, Tuples, Generics)
+    // -------------------------------------------------------------------------
+    // Explicit Array/Tuple Handling
+    if (type.isArray()) {
+      const elementType = type.getArrayElementType();
+      if (elementType) {
+        collectSymbolsFromType(
+          elementType,
+          foundSymbols,
+          contextNode,
+          depth + 1,
+        );
+      }
+    }
+    if (type.isTuple()) {
+      for (const element of type.getTupleElements()) {
+        collectSymbolsFromType(element, foundSymbols, contextNode, depth + 1);
+      }
+    }
+
+    // Always traverse Type Arguments.
+    // This ensures that even if the outer type (e.g. JsonString, Array) is external/ignored,
+    // its generic parameters are discovered.
+    for (const typeArg of type.getTypeArguments()) {
+      collectSymbolsFromType(typeArg, foundSymbols, contextNode, depth + 1);
+    }
+    for (const typeArg of type.getAliasTypeArguments()) {
+      collectSymbolsFromType(typeArg, foundSymbols, contextNode, depth + 1);
+    }
+
+    // Traverse Union / Intersection
+    if (type.isUnion()) {
+      for (const unionType of type.getUnionTypes()) {
+        collectSymbolsFromType(
+          unionType,
+          foundSymbols,
+          contextNode,
+          depth + 1,
+          true,
+        );
+      }
+    }
+    if (type.isIntersection()) {
+      for (const intersectionType of type.getIntersectionTypes()) {
+        collectSymbolsFromType(
+          intersectionType,
+          foundSymbols,
+          contextNode,
+          depth + 1,
+          true,
+        );
+      }
+    }
+
+    const typeText = type.getText(contextNode);
+    // Fallback: If type text contains import("..."), try to extract the symbol name and module path
+    const importMatches = typeText.matchAll(
+      /import\("(.*?)"\)\.([^<>[\]{}() ,;]+)/g,
+    );
+    for (const match of importMatches) {
+      const absolutePath = match[1];
+      const typeName = match[2];
+
+      if (typeName === 'default' || typeName === '__type') continue;
+
+      // Find the source file for this absolute path
+      let sourceFile =
+        project.getSourceFile(absolutePath) ||
+        project.addSourceFileAtPathIfExists(absolutePath);
+      if (!sourceFile) {
+        const extensions = ['.ts', '.d.ts', '.tsx'];
+        for (const ext of extensions) {
+          sourceFile =
+            project.getSourceFile(absolutePath + ext) ||
+            project.addSourceFileAtPathIfExists(absolutePath + ext);
+          if (sourceFile) break;
+        }
+      }
+
+      if (sourceFile) {
+        // Try to find the symbol in exported declarations first
+        const exported = sourceFile.getExportedDeclarations().get(typeName);
+        let s: import('ts-morph').Symbol | undefined;
+
+        if (exported && exported.length > 0) {
+          s = exported[0].getSymbol();
+        } else {
+          // Fallback to internal declarations if not exported
+          s =
+            sourceFile.getInterface(typeName)?.getSymbol() ||
+            sourceFile.getTypeAlias(typeName)?.getSymbol() ||
+            sourceFile.getEnum(typeName)?.getSymbol() ||
+            sourceFile.getClass(typeName)?.getSymbol();
+        }
+
+        if (s && !foundSymbols.has(s)) {
+          foundSymbols.add(s);
+        }
+      }
+    }
+
     const aliasSymbol = type.getAliasSymbol();
+    let symbol = type.getSymbol();
+
+    // Fallback: If no direct symbol, try apparent type's symbol.
+    // This is necessary for interfaces reached via inferred generics.
+    if (!symbol && !aliasSymbol) {
+      symbol = type.getApparentType().getSymbol();
+    }
+
+    // -------------------------------------------------------------------------
+    // 1. Alias Symbol (Type Alias) Check
+    // -------------------------------------------------------------------------
     if (aliasSymbol) {
       if (foundSymbols.has(aliasSymbol)) {
         return;
       }
 
-      // 外部シンボルチェック (Alias)
+      // Check if External (Alias)
       const declarations = aliasSymbol.getDeclarations();
       if (declarations.length > 0) {
         const sourceFilePath = declarations[0].getSourceFile().getFilePath();
@@ -313,23 +432,19 @@ export const generateAppsScriptTypes = async ({
 
         if (isExternal) {
           foundSymbols.add(aliasSymbol);
-          // 外部（パッケージまたは監視外プロジェクトファイル）なら、
-          // その中身のプロパティまでは追わない。
-          // ただし、ジェネリック引数は後続のコードで追う。
-          for (const typeArg of type.getAliasTypeArguments()) {
-            collectSymbolsFromType(typeArg, foundSymbols);
-          }
-          return; // プロパティ探索スキップ
+          // Note: Type args are already handled in step 0.
+          return; // Do not traverse properties of external types
         }
       }
     }
-    // 2. Symbol Check & Property Traversal
-    const symbol = type.getSymbol();
+
+    // -------------------------------------------------------------------------
+    // 2. Symbol Check & Property Traversal (Interface, Class, etc.)
+    // -------------------------------------------------------------------------
     let shouldTraverseProperties = true;
 
     if (symbol) {
       if (foundSymbols.has(symbol)) {
-        // Previously processed symbol
         shouldTraverseProperties = false;
       } else {
         foundSymbols.add(symbol);
@@ -349,50 +464,89 @@ export const generateAppsScriptTypes = async ({
                 ));
 
           if (isExternal) {
-            shouldTraverseProperties = false;
+            // Only stop traversal if NOT a component of a larger structure (like intersection)
+            // AND not an anonymous type (TypeLiteral) which acts as a structural container
+            const isAnonymous = declarations.every(
+              (d) =>
+                d.getKind() === SyntaxKind.TypeLiteral ||
+                d.getKind() === SyntaxKind.ObjectLiteralExpression,
+            );
+            if (!isComponent && !isAnonymous) {
+              shouldTraverseProperties = false;
+            }
           }
         }
       }
     }
 
     // Traverse properties if internal or anonymous (no symbol)
-    if (shouldTraverseProperties && type.isObject()) {
-      for (const prop of type.getProperties()) {
-        const propDecl = prop.getDeclarations()[0];
-        if (propDecl) {
-          // Check for ComputedPropertyName (e.g. [__brand])
-          const compilerNode = propDecl.compilerNode;
-          if (
-            // @ts-expect-error - avoiding full type checks for perf, checking kind directly
-            compilerNode.name &&
-            // @ts-expect-error - avoiding full type checks for perf, checking kind directly
-            compilerNode.name.kind === SyntaxKind.ComputedPropertyName
-          ) {
-            // @ts-expect-error - we know it has expression because it is ComputedPropertyName
-            const expression = propDecl.getNameNode().getExpression();
-            const symbol = expression.getSymbol();
-            if (symbol && !foundSymbols.has(symbol)) {
-              foundSymbols.add(symbol);
+    if (shouldTraverseProperties) {
+      // Use both explicit and apparent properties
+      const props = new Set([
+        ...type.getProperties(),
+        ...type.getApparentProperties(),
+      ]);
+
+      for (const prop of props) {
+        let propType: Type | undefined;
+
+        if (contextNode) {
+          try {
+            propType = prop.getTypeAtLocation(contextNode);
+          } catch {
+            // ignore
+          }
+        }
+
+        if (!propType || propType.getText() === 'any') {
+          const propDecls = prop.getDeclarations();
+          if (propDecls.length > 0) {
+            propType = propDecls[0].getType();
+          }
+        }
+
+        // Fallback for aliased symbols (e.g. shorthand properties)
+        if (
+          (!propType || propType.getText() === 'any') &&
+          prop.getAliasedSymbol()
+        ) {
+          const aliased = prop.getAliasedSymbol();
+          if (aliased) {
+            const decl =
+              aliased.getValueDeclaration() || aliased.getDeclarations()[0];
+            if (decl) {
+              propType = decl.getType();
             }
           }
-          collectSymbolsFromType(propDecl.getType(), foundSymbols);
         }
-      }
-    }
 
-    // Type Arguments, Union, Intersectionの探索
-    // 外部型であっても、ジェネリック引数（例: Array<InternalType>）は探索する必要がある
-    for (const typeArg of type.getTypeArguments()) {
-      collectSymbolsFromType(typeArg, foundSymbols);
-    }
-    if (type.isUnion()) {
-      for (const unionType of type.getUnionTypes()) {
-        collectSymbolsFromType(unionType, foundSymbols);
-      }
-    }
-    if (type.isIntersection()) {
-      for (const intersectionType of type.getIntersectionTypes()) {
-        collectSymbolsFromType(intersectionType, foundSymbols);
+        if (propType) {
+          // Check for ComputedPropertyName (e.g. [__brand])
+          const propDecls = prop.getDeclarations();
+          if (propDecls.length > 0) {
+            const propDecl = propDecls[0];
+            const compilerNode = propDecl.compilerNode;
+            if (
+              // @ts-expect-error - checking kind directly for perf
+              compilerNode.name &&
+              // @ts-expect-error - checking kind directly for perf
+              compilerNode.name.kind === SyntaxKind.ComputedPropertyName
+            ) {
+              // @ts-expect-error - has expression
+              const expression = propDecl.getNameNode().getExpression();
+              const s = expression.getSymbol();
+              if (s && !foundSymbols.has(s)) {
+                foundSymbols.add(s);
+              }
+            }
+          }
+          collectSymbolsFromType(
+            propType,
+            foundSymbols,
+            contextNode,
+            depth + 1,
+          );
+        }
       }
     }
   };
@@ -422,20 +576,22 @@ export const generateAppsScriptTypes = async ({
 
       const parameters = func.getParameters();
       for (const param of parameters) {
-        collectSymbolsFromType(param.getType(), functionSignatureSymbols);
-        collectSymbolsFromType(param.getType(), symbolsToProcess);
+        // Use 'func' as context node
+        collectSymbolsFromType(param.getType(), functionSignatureSymbols, func);
+        collectSymbolsFromType(param.getType(), symbolsToProcess, func);
       }
 
       const returnType = func.getReturnType();
-      collectSymbolsFromType(returnType, functionSignatureSymbols);
-      collectSymbolsFromType(returnType, symbolsToProcess);
+      // Use 'func' as context node
+      collectSymbolsFromType(returnType, functionSignatureSymbols, func);
+      collectSymbolsFromType(returnType, symbolsToProcess, func);
     }
     // For interfaces and type aliases, scan the whole declaration (for inlining only)
     else if (
       decl.getKind() === SyntaxKind.InterfaceDeclaration ||
       decl.getKind() === SyntaxKind.TypeAliasDeclaration
     ) {
-      collectSymbolsFromType(decl.getType(), symbolsToProcess);
+      collectSymbolsFromType(decl.getType(), symbolsToProcess, decl);
     }
   }
 
@@ -450,6 +606,7 @@ export const generateAppsScriptTypes = async ({
     symbolsToProcess.delete(symbol);
 
     const symbolName = symbol.getName();
+
     if (
       processedSymbols.has(symbolName) ||
       exportedDeclarationNames.has(symbolName) ||
@@ -647,9 +804,12 @@ export const generateAppsScriptTypes = async ({
         const imports = [...(importsMap.get(modulePath) ?? [])]
           .sort()
           .filter((importName) => {
-            // Check if the import name is used in the body content
-            // Use word boundary to match exact name
-            const regex = new RegExp(`\\b${importName}\\b`);
+            // Check if the import name is used in the body content.
+            // Use a regex that matches the name as a standalone word OR prefixed by import("...").
+            // This handles cases where ts-morph might still emit path-poisoned types.
+            const regex = new RegExp(
+              `(?:import\\(".*?"\\)\\.|\\b)${importName}\\b`,
+            );
             return regex.test(bodyContent);
           });
 
