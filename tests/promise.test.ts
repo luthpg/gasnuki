@@ -21,7 +21,9 @@ describe('getPromisedServerScripts', () => {
     // globalThis.googleが未定義であることを保証
     (globalThis as any).google = undefined;
 
-    const result = getPromisedServerScripts<typeof mock>(mock);
+    const result = getPromisedServerScripts<typeof mock>({
+      mockupFunctions: mock,
+    });
     expect(result.foo).toBe(mock.foo);
   });
 
@@ -31,7 +33,9 @@ describe('getPromisedServerScripts', () => {
     // googleは存在するがscript.runが存在しない場合
     (globalThis as any).google = {};
 
-    const result = getPromisedServerScripts<typeof mock>(mock);
+    const result = getPromisedServerScripts<typeof mock>({
+      mockupFunctions: mock,
+    });
     expect(result.foo).toBe(mock.foo);
   });
 
@@ -207,7 +211,7 @@ describe('getPromisedServerScripts', () => {
       },
     };
 
-    const result = getPromisedServerScripts(mockupFunctions);
+    const result = getPromisedServerScripts({ mockupFunctions });
 
     // google.script.runが存在する場合、存在しないメソッドはエラーになる
     expect(() => result.customMethod()).toThrow(
@@ -223,7 +227,7 @@ describe('getPromisedServerScripts', () => {
     // google.script.runが存在しない
     (globalThis as any).google = undefined;
 
-    const result = getPromisedServerScripts(mockupFunctions);
+    const result = getPromisedServerScripts({ mockupFunctions });
 
     // customMethodはmockupFunctionsから取得される
     expect(result.customMethod).toBe(mockupFunctions.customMethod);
@@ -253,7 +257,7 @@ describe('getPromisedServerScripts', () => {
       },
     };
 
-    const result = getPromisedServerScripts(mockupFunctions);
+    const result = getPromisedServerScripts({ mockupFunctions });
 
     // existingMethodはgoogle.script.runから取得される（mockupFunctionsではない）
     expect(result.existingMethod).not.toBe(mockupFunctions.existingMethod);
@@ -276,7 +280,7 @@ describe('getPromisedServerScripts', () => {
       },
     };
 
-    const result = getPromisedServerScripts({});
+    const result = getPromisedServerScripts({ mockupFunctions: {} });
 
     expect(typeof result.testMethod).toBe('function');
     const promise = result.testMethod('test');
@@ -299,7 +303,7 @@ describe('getPromisedServerScripts', () => {
       },
     };
 
-    const result = getPromisedServerScripts(undefined);
+    const result = getPromisedServerScripts({ mockupFunctions: undefined });
 
     expect(typeof result.testMethod).toBe('function');
     const promise = result.testMethod('test');
@@ -362,5 +366,83 @@ describe('getPromisedServerScripts', () => {
     expect(partial.method1).toBeDefined();
     expect(partial.method2).toBeUndefined();
     expect(partial.method3).toBeUndefined();
+  });
+
+  it('parseJson: true の場合、JsonStringが自動的にデシリアライズされる', async () => {
+    // google.script.runのモック
+    const mockMethod = vi.fn();
+    (globalThis as any).google = {
+      script: {
+        run: {
+          withSuccessHandler: vi.fn((handler) => {
+            // ISO日付文字列を含むJSON文字列を返す
+            handler('{"date":"2023-01-01T00:00:00.000Z"}');
+            return {
+              withFailureHandler: vi.fn().mockReturnValue({
+                jsonMethod: mockMethod,
+              }),
+            };
+          }),
+          jsonMethod: mockMethod,
+        },
+      },
+    };
+
+    const result = getPromisedServerScripts<{ jsonMethod: () => any }>({
+      parseJson: true,
+    });
+    const promise = result.jsonMethod();
+
+    const value = await promise;
+    expect(value).toEqual({ date: expect.any(Date) });
+    expect(value.date.toISOString()).toBe('2023-01-01T00:00:00.000Z');
+  });
+
+  it('parseJson: true の場合、無効なJSONはそのまま返される', async () => {
+    const mockMethod = vi.fn();
+    (globalThis as any).google = {
+      script: {
+        run: {
+          withSuccessHandler: vi.fn((handler) => {
+            handler('not a json string');
+            return {
+              withFailureHandler: vi.fn().mockReturnValue({
+                textMethod: mockMethod,
+              }),
+            };
+          }),
+          textMethod: mockMethod,
+        },
+      },
+    };
+
+    const result = getPromisedServerScripts<{ textMethod: () => any }>({
+      parseJson: true,
+    });
+    const value = await result.textMethod();
+    expect(value).toBe('not a json string');
+  });
+
+  it('parseJson: false (デフォルト) の場合、JSON文字列はそのまま返される', async () => {
+    const mockMethod = vi.fn();
+    (globalThis as any).google = {
+      script: {
+        run: {
+          withSuccessHandler: vi.fn((handler) => {
+            handler('{"key":"value"}');
+            return {
+              withFailureHandler: vi.fn().mockReturnValue({
+                jsonMethod: mockMethod,
+              }),
+            };
+          }),
+          jsonMethod: mockMethod,
+        },
+      },
+    };
+
+    const result = getPromisedServerScripts<{ jsonMethod: () => any }>();
+    const value = await result.jsonMethod();
+    expect(value).toBe('{"key":"value"}');
   });
 });

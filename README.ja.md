@@ -1,9 +1,10 @@
 # @ciderjs/gasnuki
 
 [![README-en](https://img.shields.io/badge/English-blue?logo=ReadMe)](./README.md)
-[![Test Coverage](https://img.shields.io/badge/test%20coverage-95.15%25-brightgreen)](https://github.com/luthpg/gasnuki)
+[![Test Coverage](https://img.shields.io/badge/test%20coverage-93.03%25-brightgreen)](https://github.com/luthpg/gasnuki)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/@ciderjs/gasnuki.svg)](https://www.npmjs.com/package/@ciderjs/gasnuki)
+![NPM Downloads](https://img.shields.io/npm/dw/@ciderjs/gasnuki)
 [![GitHub issues](https://img.shields.io/github/issues/luthpg/gasnuki.svg)](https://github.com/luthpg/gasnuki/issues)
 
 Google Apps Script クライアントサイドAPIの型定義・ユーティリティ
@@ -160,7 +161,7 @@ import {
 import type { ServerScripts } from '../types/appsscript';
 
 // 開発用のモック関数を定義します
-const mockup: PartialScriptType<ServerScripts> = {
+const mockupFunctions: PartialScriptType<ServerScripts> = {
   // sayHello関数の動作をシミュレート
   sayHello: async (name) => {
     await new Promise(resolve => setTimeout(resolve, 500)); // ネットワーク遅延を模倣
@@ -169,7 +170,33 @@ const mockup: PartialScriptType<ServerScripts> = {
   // 他の関数も同様にモックできます
 };
 
-export const gas = getPromisedServerScripts<ServerScripts>(mockup);
+export const gas = getPromisedServerScripts<ServerScripts>({ mockupFunctions });
+```
+
+### 型安全な JSON パース (Optional)
+
+通常、Google Apps Script とクライアント間の通信で `JSON.parse()` を使うと戻り値が `any` になってしまいます。また、`Date` 型などはシリアライズの過程で文字列に変換され、手動での復元が必要になります。
+
+`gasnuki` は、シリアライズ前の型情報を Branded Type (`JsonString<T>`) として保持することで、**`any` を介さない型安全な復元**を可能にします。
+
+`getPromisedServerScripts` のオプションに `{ parseJson: true }` を指定すると、サーバー側で `serialize()` された戻り値を自動でデシリアライズし、`Date` オブジェクトも正しく復元します。
+
+```ts
+// サーバー側 (Apps Script)
+// const getAppData = () => serialize({ updatedAt: new Date(), user: 'Alice' });
+
+// クライアント側
+export const gas = getPromisedServerScripts<ServerScripts>({
+  parseJson: true
+});
+
+async function fetchData() {
+  // 戻り値は `any` ではなく、元のオブジェクト型として推論されます
+  // Date オブジェクトも自動的に復元されます
+  const result = await gas.getAppData();
+  console.log(result.user); // 'Alice' (string)
+  console.log(result.updatedAt instanceof Date); // true
+}
 ```
 
 ## コントリビュート

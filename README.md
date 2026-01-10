@@ -1,9 +1,10 @@
 # @ciderjs/gasnuki
 
 [![README-ja](https://img.shields.io/badge/日本語-blue?logo=ReadMe)](./README.ja.md)
-[![Test Coverage](https://img.shields.io/badge/test%20coverage-95.15%25-brightgreen)](https://github.com/luthpg/gasnuki)
+[![Test Coverage](https://img.shields.io/badge/test%20coverage-93.03%25-brightgreen)](https://github.com/luthpg/gasnuki)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/@ciderjs/gasnuki.svg)](https://www.npmjs.com/package/@ciderjs/gasnuki)
+![NPM Downloads](https://img.shields.io/npm/dw/@ciderjs/gasnuki)
 [![GitHub issues](https://img.shields.io/github/issues/luthpg/gasnuki.svg)](https://github.com/luthpg/gasnuki/issues)
 
 Type definitions and utilities for Google Apps Script client-side API
@@ -160,7 +161,7 @@ import {
 import type { ServerScripts } from '../types/appsscript';
 
 // Define mockup functions for development
-const mockup: PartialScriptType<ServerScripts> = {
+const mockupFunctions: PartialScriptType<ServerScripts> = {
   // Simulate the behavior of the sayHello function
   sayHello: async (name) => {
     await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
@@ -169,7 +170,33 @@ const mockup: PartialScriptType<ServerScripts> = {
   // Other functions can be mocked similarly
 };
 
-export const gas = getPromisedServerScripts<ServerScripts>(mockup);
+export const gas = getPromisedServerScripts<ServerScripts>({ mockupFunctions });
+```
+
+### Type-Safe JSON Parsing (Optional)
+
+Normally, using `JSON.parse()` for communication between Google Apps Script and the client results in an `any` return type. Additionally, types like `Date` are converted to strings during serialization and require manual restoration.
+
+`gasnuki` preserves the original type information as a Branded Type (`JsonString<T>`), enabling **type-safe restoration without using `any`**.
+
+By passing `{ parseJson: true }` as the second argument to `getPromisedServerScripts`, it will automatically deserialize return values that were `serialize()`-ed on the server side, including proper `Date` object recovery.
+
+```ts
+// Server-side (Apps Script)
+// const getAppData = () => serialize({ updatedAt: new Date(), user: 'Alice' });
+
+// Client-side
+export const gas = getPromisedServerScripts<ServerScripts>({
+  parseJson: true
+});
+
+async function fetchData() {
+  // The return value is inferred as the original object type instead of `any`
+  // Date objects are also automatically recovered
+  const result = await gas.getAppData();
+  console.log(result.user); // 'Alice' (string)
+  console.log(result.updatedAt instanceof Date); // true
+}
 ```
 
 ## Contributing
