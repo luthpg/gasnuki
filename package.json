@@ -22,6 +22,11 @@
       "types": "./dist/vite.d.ts",
       "import": "./dist/vite.mjs",
       "require": "./dist/vite.cjs"
+    },
+    "./json": {
+      "types": "./dist/json.d.ts",
+      "import": "./dist/json.mjs",
+      "require": "./dist/json.cjs"
     }
   },
   "scripts": {
