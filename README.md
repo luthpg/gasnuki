@@ -4,6 +4,7 @@
 [![Test Coverage](https://img.shields.io/badge/test%20coverage-93.02%25-brightgreen)](https://github.com/luthpg/gasnuki)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/@ciderjs/gasnuki.svg)](https://www.npmjs.com/package/@ciderjs/gasnuki)
+![NPM Downloads](https://img.shields.io/npm/dw/@ciderjs/gasnuki)
 [![GitHub issues](https://img.shields.io/github/issues/luthpg/gasnuki.svg)](https://github.com/luthpg/gasnuki/issues)
 
 Type definitions and utilities for Google Apps Script client-side API
@@ -160,7 +161,7 @@ import {
 import type { ServerScripts } from '../types/appsscript';
 
 // Define mockup functions for development
-const mockup: PartialScriptType<ServerScripts> = {
+const mockupFunctions: PartialScriptType<ServerScripts> = {
   // Simulate the behavior of the sayHello function
   sayHello: async (name) => {
     await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
@@ -169,7 +170,7 @@ const mockup: PartialScriptType<ServerScripts> = {
   // Other functions can be mocked similarly
 };
 
-export const gas = getPromisedServerScripts<ServerScripts>({ mockup });
+export const gas = getPromisedServerScripts<ServerScripts>({ mockupFunctions });
 ```
 
 ### Type-Safe JSON Parsing (Optional)

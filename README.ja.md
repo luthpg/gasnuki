@@ -4,6 +4,7 @@
 [![Test Coverage](https://img.shields.io/badge/test%20coverage-93.02%25-brightgreen)](https://github.com/luthpg/gasnuki)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/@ciderjs/gasnuki.svg)](https://www.npmjs.com/package/@ciderjs/gasnuki)
+![NPM Downloads](https://img.shields.io/npm/dw/@ciderjs/gasnuki)
 [![GitHub issues](https://img.shields.io/github/issues/luthpg/gasnuki.svg)](https://github.com/luthpg/gasnuki/issues)
 
 Google Apps Script クライアントサイドAPIの型定義・ユーティリティ
@@ -160,7 +161,7 @@ import {
 import type { ServerScripts } from '../types/appsscript';
 
 // 開発用のモック関数を定義します
-const mockup: PartialScriptType<ServerScripts> = {
+const mockupFunctions: PartialScriptType<ServerScripts> = {
   // sayHello関数の動作をシミュレート
   sayHello: async (name) => {
     await new Promise(resolve => setTimeout(resolve, 500)); // ネットワーク遅延を模倣
@@ -169,7 +170,7 @@ const mockup: PartialScriptType<ServerScripts> = {
   // 他の関数も同様にモックできます
 };
 
-export const gas = getPromisedServerScripts<ServerScripts>({ mockup });
+export const gas = getPromisedServerScripts<ServerScripts>({ mockupFunctions });
 ```
 
 ### 型安全な JSON パース (Optional)
