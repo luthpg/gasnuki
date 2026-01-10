@@ -21,7 +21,9 @@ describe('getPromisedServerScripts', () => {
     // globalThis.googleが未定義であることを保証
     (globalThis as any).google = undefined;
 
-    const result = getPromisedServerScripts<typeof mock>({ mockupFunctions: mock });
+    const result = getPromisedServerScripts<typeof mock>({
+      mockupFunctions: mock,
+    });
     expect(result.foo).toBe(mock.foo);
   });
 
@@ -31,7 +33,9 @@ describe('getPromisedServerScripts', () => {
     // googleは存在するがscript.runが存在しない場合
     (globalThis as any).google = {};
 
-    const result = getPromisedServerScripts<typeof mock>({ mockupFunctions: mock });
+    const result = getPromisedServerScripts<typeof mock>({
+      mockupFunctions: mock,
+    });
     expect(result.foo).toBe(mock.foo);
   });
 

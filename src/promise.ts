@@ -17,7 +17,10 @@ export type PromisedWithJson<T> = {
 export type PartialScriptType<T> = Partial<Promised<T>>;
 export type PartialScriptTypeWithJson<T> = Partial<PromisedWithJson<T>>;
 
-export type GetPromisedServerScriptsOptions<T, IsJson extends boolean = boolean> = {
+export type GetPromisedServerScriptsOptions<
+  T,
+  IsJson extends boolean = boolean,
+> = {
   mockupFunctions?: IsJson extends true
     ? PartialScriptTypeWithJson<T>
     : PartialScriptType<T>;
@@ -29,18 +32,14 @@ export function getPromisedServerScripts<
     typeof google.script.run,
     'withSuccessHandler' | 'withFailureHandler' | 'withUserObject'
   >,
->(
-  options: GetPromisedServerScriptsOptions<T, true>,
-): PromisedWithJson<T>;
+>(options: GetPromisedServerScriptsOptions<T, true>): PromisedWithJson<T>;
 
 export function getPromisedServerScripts<
   T extends Record<string, (...args: any[]) => any> = Omit<
     typeof google.script.run,
     'withSuccessHandler' | 'withFailureHandler' | 'withUserObject'
   >,
->(
-  options?: GetPromisedServerScriptsOptions<T, false>,
-): Promised<T>;
+>(options?: GetPromisedServerScriptsOptions<T, false>): Promised<T>;
 
 export function getPromisedServerScripts<
   T extends Record<string, (...args: any[]) => any> = Omit<
