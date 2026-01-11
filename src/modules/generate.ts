@@ -122,42 +122,141 @@ export const SIMPLE_TRIGGER_FUNCTION_NAMES = [
 ];
 
 /**
- * Extracts the package name from a node_modules file path.
- * Handles both regular packages (e.g., 'zod') and scoped packages (e.g., '@types/node').
- * For DefinitelyTyped packages (@types/***), returns the actual package name (***).
- * @param filePath The full file path within node_modules
- * @returns The package name, or null if not found
+ * Caches package.json contents to avoid redundant file system reads.
  */
-const getPackageNameFromNodeModulesPath_ = (
-  filePath: string,
-): string | null => {
-  const normalizedPath = filePath.replace(/\\/g, '/');
-  const nodeModulesIndex = normalizedPath.lastIndexOf('node_modules/');
-  if (nodeModulesIndex === -1) {
-    return null;
-  }
+const packageJsonCache = new Map<
+  string,
+  { path: string; content: any } | null
+>();
 
-  const afterNodeModules = normalizedPath.slice(
-    nodeModulesIndex + 'node_modules/'.length,
-  );
-  const parts = afterNodeModules.split('/');
-
-  if (parts.length === 0) {
-    return null;
-  }
-
-  // Scoped package: @scope/package-name
-  if (parts[0].startsWith('@') && parts.length >= 2) {
-    const scopedName = `${parts[0]}/${parts[1]}`;
-    // Convert @types/package-name to package-name (DefinitelyTyped)
-    if (parts[0] === '@types') {
-      return parts[1];
+/**
+ * Finds the closest package.json starting from the given directory and traversing up.
+ */
+const findPackageJson_ = (
+  startDir: string,
+): { path: string; content: any } | null => {
+  let currentDir = startDir;
+  while (true) {
+    if (packageJsonCache.has(currentDir)) {
+      // biome-ignore lint/style/noNonNullAssertion: packageJsonCache has currentDir
+      return packageJsonCache.get(currentDir)!;
     }
-    return scopedName;
+
+    const pkgPath = path.join(currentDir, 'package.json');
+    if (fs.existsSync(pkgPath)) {
+      try {
+        const content = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+        const result = { path: pkgPath, content };
+        packageJsonCache.set(currentDir, result);
+        // Optimization: also cache for startDir if different
+        if (currentDir !== startDir) {
+          packageJsonCache.set(startDir, result);
+        }
+        return result;
+      } catch {
+        // ignore error
+      }
+    }
+
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      packageJsonCache.set(currentDir, null);
+      if (currentDir !== startDir) {
+        packageJsonCache.set(startDir, null);
+      }
+      break;
+    }
+    currentDir = parentDir;
+  }
+  return null;
+};
+
+/**
+ * Recursively checks if an exports entry matches the target file path.
+ */
+const matchesExportValue_ = (node: any, targetPath: string): boolean => {
+  if (typeof node === 'string') {
+    // Exact match or relative path match
+    // targetPath is like "./dist/index.d.ts"
+    // node might be "./dist/index.js" or "./dist/index.d.ts"
+    return (
+      node === targetPath || node === targetPath.replace(/\.d\.ts$/, '.js')
+    );
+  }
+  if (typeof node === 'object' && node !== null) {
+    // Prioritize 'types' condition for .d.ts resolution
+    if (
+      node.types &&
+      (node.types === targetPath ||
+        node.types === targetPath.replace(/\.d\.ts$/, '.d.ts'))
+    ) {
+      return true;
+    }
+    // Recursively check nested conditions
+    for (const key in node) {
+      if (matchesExportValue_(node[key], targetPath)) {
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
+/**
+ * Resolves the module specifier for a given file path within node_modules.
+ * Uses package.json 'exports' if available, otherwise falls back to 'types'/'typings' or package name.
+ */
+const resolveNodeModuleSpecifier_ = (filePath: string): string | null => {
+  const pkg = findPackageJson_(path.dirname(filePath));
+  if (!pkg) return null;
+
+  let packageName = pkg.content.name;
+
+  // Handle @types packages: mapping @types/foo -> foo
+  if (packageName.startsWith('@types/')) {
+    packageName = packageName.slice(7);
   }
 
-  // Regular package: package-name
-  return parts[0];
+  const packageRoot = path.dirname(pkg.path);
+
+  // Calculate relative path from package root, e.g., "dist/json.d.ts"
+  // Ensure forward slashes for consistency
+  let relativePath = path.relative(packageRoot, filePath).replace(/\\/g, '/');
+  if (!relativePath.startsWith('.')) {
+    relativePath = `./${relativePath}`;
+  }
+
+  // 1. Try to resolve using "exports"
+  if (pkg.content.exports) {
+    for (const key in pkg.content.exports) {
+      const exportValue = pkg.content.exports[key];
+      // key is the exported path (e.g. "." or "./json")
+      // exportValue is the local path (e.g. "./dist/json.js")
+
+      // We check if our relativePath (local file) matches the exportValue
+      if (matchesExportValue_(exportValue, relativePath)) {
+        if (key === '.') return packageName;
+        // Handle subpaths (e.g., "./json" -> "package/json")
+        // key starts with ./
+        return path.posix.join(packageName, key);
+      }
+    }
+  }
+
+  // 2. Try to resolve using "types" or "typings" (Main entry point)
+  const mainTypes = pkg.content.types || pkg.content.typings;
+  if (mainTypes) {
+    let normalizedMain = mainTypes.replace(/\\/g, '/');
+    if (!normalizedMain.startsWith('.')) {
+      normalizedMain = `./${normalizedMain}`;
+    }
+    if (normalizedMain === relativePath) {
+      return packageName;
+    }
+  }
+
+  // 3. Fallback to package name (legacy behavior)
+  return packageName;
 };
 
 export const generateAppsScriptTypes = async ({
@@ -179,10 +278,15 @@ export const generateAppsScriptTypes = async ({
   consola.info(`  AppsScript Source Directory: ${absoluteSrcDir}`);
   consola.info(`  Output File: ${absoluteOutputFile}`);
 
+  let tsConfigFilePath = path.resolve(projectPath, 'tsconfig.json');
+  if (fs.existsSync(path.resolve(projectPath, 'tsconfig.app.json'))) {
+    tsConfigFilePath = path.resolve(projectPath, 'tsconfig.app.json');
+  }
+
   const project =
     projectInstance ??
     new Project({
-      tsConfigFilePath: path.resolve(projectPath, 'tsconfig.json'),
+      tsConfigFilePath,
       skipAddingFilesFromTsConfig: true,
     });
 
@@ -671,7 +775,7 @@ export const generateAppsScriptTypes = async ({
         if (!functionSignatureSymbols.has(symbol)) {
           continue;
         }
-        const packageName = getPackageNameFromNodeModulesPath_(sourceFilePath);
+        const packageName = resolveNodeModuleSpecifier_(sourceFilePath);
         if (packageName) {
           processedSymbols.add(symbolName);
           if (!importsMap.has(packageName)) {

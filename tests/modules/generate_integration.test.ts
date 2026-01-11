@@ -7,6 +7,23 @@ vi.mock('node:fs', () => ({
   existsSync: vi.fn(() => true),
   mkdirSync: vi.fn(),
   writeFileSync: vi.fn(),
+  readFileSync: vi.fn((path: string) => {
+    if (path.endsWith('package.json')) {
+      const normalizedPath = path.replace(/\\/g, '/');
+      const parts = normalizedPath.split('/');
+      const nodeModulesIndex = parts.lastIndexOf('node_modules');
+      let name = 'mock-package';
+      if (nodeModulesIndex !== -1 && parts.length > nodeModulesIndex + 1) {
+        if (parts[nodeModulesIndex + 1].startsWith('@')) {
+          name = `${parts[nodeModulesIndex + 1]}/${parts[nodeModulesIndex + 2]}`;
+        } else {
+          name = parts[nodeModulesIndex + 1];
+        }
+      }
+      return JSON.stringify({ name });
+    }
+    return '';
+  }),
 }));
 
 // Mock consola

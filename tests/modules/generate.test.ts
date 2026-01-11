@@ -7,6 +7,25 @@ vi.mock('node:fs', () => ({
   existsSync: vi.fn(() => true), // 出力先ディレクトリは存在すると仮定
   mkdirSync: vi.fn(),
   writeFileSync: vi.fn(),
+  readFileSync: vi.fn((path: string) => {
+    if (path.endsWith('package.json')) {
+      // Mock package.json content
+      // Extract package name from path if possible, or default
+      // Path example: /node_modules/zod/package.json
+      const parts = path.split(/[/\\]/);
+      const nodeModulesIndex = parts.lastIndexOf('node_modules');
+      let name = 'mock-package';
+      if (nodeModulesIndex !== -1 && parts.length > nodeModulesIndex + 1) {
+        if (parts[nodeModulesIndex + 1].startsWith('@')) {
+          name = `${parts[nodeModulesIndex + 1]}/${parts[nodeModulesIndex + 2]}`;
+        } else {
+          name = parts[nodeModulesIndex + 1];
+        }
+      }
+      return JSON.stringify({ name, exports: { '.': './index.js' } });
+    }
+    return '';
+  }),
 }));
 vi.mock('consola', () => ({
   consola: { info: vi.fn(), error: vi.fn(), success: vi.fn() },
