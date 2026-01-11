@@ -21,9 +21,7 @@ export type GetPromisedServerScriptsOptions<
   T,
   IsJson extends boolean = boolean,
 > = {
-  mockupFunctions?: IsJson extends true
-    ? PartialScriptTypeWithJson<T>
-    : PartialScriptType<T>;
+  mockupFunctions?: PartialScriptType<T>;
   parseJson?: IsJson;
 };
 
@@ -56,7 +54,24 @@ export function getPromisedServerScripts<
   >(mockupFunctions as any, {
     get(target, method: string) {
       if (!('google' in globalThis) || !google?.script?.run) {
-        return target[method];
+        const mockFunc = target[method];
+        if (!mockFunc) {
+          return undefined;
+        }
+        if (!parseJson) {
+          return mockFunc;
+        }
+        return async (...args: any[]) => {
+          const res = await mockFunc(...args);
+          if (typeof res === 'string') {
+            try {
+              return deserialize(res as any);
+            } catch {
+              return res;
+            }
+          }
+          return res;
+        };
       }
       if (!(method in google.script.run)) {
         throw Error(`Method ${method} not found in AppsScript.`);

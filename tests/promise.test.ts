@@ -445,4 +445,44 @@ describe('getPromisedServerScripts', () => {
     const value = await result.jsonMethod();
     expect(value).toBe('{"key":"value"}');
   });
+
+  it('mockupFunctions: parseJson: true の場合、mockupが返すJsonStringが自動的にデシリアライズされる', async () => {
+    // google.script.runが存在しない
+    (globalThis as any).google = undefined;
+
+    const mockupFunctions = {
+      jsonMethod: vi
+        .fn()
+        .mockResolvedValue('{"date":"2023-01-01T00:00:00.000Z"}'),
+    };
+
+    const result = getPromisedServerScripts<{ jsonMethod: () => any }>({
+      mockupFunctions,
+      parseJson: true,
+    });
+
+    const value = await result.jsonMethod();
+    expect(value).toEqual({ date: expect.any(Date) });
+    expect(value.date.toISOString()).toBe('2023-01-01T00:00:00.000Z');
+  });
+
+  it('mockupFunctions: parseJson: true の場合でも、mockupがオブジェクトを返せばそのまま返される（後方互換性）', async () => {
+    // google.script.runが存在しない
+    (globalThis as any).google = undefined;
+
+    const expectedObj = { date: new Date('2023-01-01T00:00:00.000Z') };
+    const mockupFunctions = {
+      // 型定義上はエラーになる可能性があるが、ランタイムでは動作することを確認
+      jsonMethod: vi.fn().mockResolvedValue(expectedObj),
+    };
+
+    const result = getPromisedServerScripts<{ jsonMethod: () => any }>({
+      // @ts-expect-error テストのために型エラーを無視
+      mockupFunctions,
+      parseJson: true,
+    });
+
+    const value = await result.jsonMethod();
+    expect(value).toBe(expectedObj);
+  });
 });
