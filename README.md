@@ -1,7 +1,7 @@
 # @ciderjs/gasnuki
 
 [![README-ja](https://img.shields.io/badge/日本語-blue?logo=ReadMe)](./README.ja.md)
-[![Test Coverage](https://img.shields.io/badge/test%20coverage-92.76%25-brightgreen)](https://github.com/luthpg/gasnuki)
+[![Test Coverage](https://img.shields.io/badge/test%20coverage-89.07%25-green)](https://github.com/luthpg/gasnuki)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/@ciderjs/gasnuki.svg)](https://www.npmjs.com/package/@ciderjs/gasnuki)
 ![NPM Downloads](https://img.shields.io/npm/dw/@ciderjs/gasnuki)
