@@ -185,11 +185,7 @@ const matchesExportValue_ = (node: any, targetPath: string): boolean => {
   }
   if (typeof node === 'object' && node !== null) {
     // Prioritize 'types' condition for .d.ts resolution
-    if (
-      node.types &&
-      (node.types === targetPath ||
-        node.types === targetPath.replace(/\.d\.ts$/, '.d.ts'))
-    ) {
+    if (node.types && node.types === targetPath) {
       return true;
     }
     // Recursively check nested conditions
