@@ -1,6 +1,6 @@
 {
   "name": "@ciderjs/gasnuki",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Type definitions and utilities for Google Apps Script client-side API",
   "main": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -68,12 +68,12 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
-    "@types/node": "^25.0.6",
-    "@vitest/coverage-v8": "4.0.16",
+    "@types/node": "^25.0.9",
+    "@vitest/coverage-v8": "4.0.17",
     "typescript": "^5.9.3",
     "unbuild": "^3.6.1",
     "vite": "^7.3.1",
-    "vitest": "4.0.16"
+    "vitest": "4.0.17"
   },
   "peerDependencies": {
     "vite": "^7"
