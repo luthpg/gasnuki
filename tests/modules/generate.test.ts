@@ -1045,4 +1045,47 @@ export function getUserId(id: UserId): UserId {
 
     expect(writeFileSync).toHaveBeenCalledTimes(1);
   });
+
+  it('@typesパッケージに含まれるグローバルな型定義（exportされていない）をインポートしないこと', async () => {
+    const project = new Project({
+      useInMemoryFileSystem: true,
+      compilerOptions: {
+        types: [],
+      },
+    });
+
+    // @types/google-apps-script のようなグローバル型定義をシミュレート
+    // 特徴: top-level exportを持たない
+    project.createSourceFile(
+      '/node_modules/@types/google-apps-script/index.d.ts',
+      `declare namespace SpreadsheetApp {
+        export interface Sheet {
+          getName(): string;
+        }
+      }
+      declare var SpreadsheetApp: {
+        getActiveSpreadsheet(): any;
+      };`,
+    );
+
+    // srcDir内でグローバル型を使用
+    project.createSourceFile(
+      '/src/gas-script.ts',
+      `export function getSheet(): SpreadsheetApp.Sheet {
+         return SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+      }`,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // 1. google-apps-script からのインポートが生成されないことを確認
+    expect(writtenContent).not.toContain("from 'google-apps-script'");
+
+    // 2. SpreadsheetApp.Sheet がそのまま使われているか
+    expect(writtenContent).toContain('getSheet(): SpreadsheetApp.Sheet;');
+  });
 });

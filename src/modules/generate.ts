@@ -7,7 +7,7 @@ import {
   type FunctionDeclaration,
   type FunctionExpression,
   type InterfaceDeclaration,
-  type Node,
+  Node,
   Project,
   SymbolFlags,
   SyntaxKind,
@@ -771,6 +771,26 @@ export const generateAppsScriptTypes = async ({
         if (!functionSignatureSymbols.has(symbol)) {
           continue;
         }
+
+        // Check for global declaration file (no top-level import/export)
+        // If it is a global file, we should not generate an import statement
+        const hasExportModifier = sourceFile.getStatements().some((stmt) => {
+          if (Node.isExportable(stmt)) {
+            return stmt.isExported();
+          }
+          return false;
+        });
+
+        const isGlobal =
+          sourceFile.getImportDeclarations().length === 0 &&
+          sourceFile.getExportDeclarations().length === 0 &&
+          sourceFile.getExportAssignments().length === 0 &&
+          !hasExportModifier;
+
+        if (isGlobal) {
+          continue;
+        }
+
         const packageName = resolveNodeModuleSpecifier_(sourceFilePath);
         if (packageName) {
           processedSymbols.add(symbolName);
