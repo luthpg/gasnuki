@@ -162,4 +162,81 @@ describe('vite-plugin-gasnuki', () => {
     await vi.advanceTimersByTimeAsync(300);
     expect(generateAppsScriptTypes).toHaveBeenCalledTimes(1);
   });
+
+  it('should debounce multiple rapid file changes', async () => {
+    const plugin = getPlugin({ srcDir: 'app/server' });
+    await plugin.configResolved(mockViteConfig);
+    await plugin.configureServer(mockViteServer);
+
+    // Initial call on startup (after debounce)
+    await vi.advanceTimersByTimeAsync(300);
+    expect(generateAppsScriptTypes).toHaveBeenCalledTimes(1);
+
+    const watcherCallback = (mockViteServer.watcher.on as Mock).mock
+      .calls[0][1];
+
+    // Simulate multiple rapid changes
+    watcherCallback('change', '/project/root/app/server/a.ts');
+    await vi.advanceTimersByTime(100);
+    watcherCallback('change', '/project/root/app/server/b.ts');
+    await vi.advanceTimersByTime(100);
+    watcherCallback('change', '/project/root/app/server/c.ts');
+
+    // Should not have been called yet
+    expect(generateAppsScriptTypes).toHaveBeenCalledTimes(1);
+
+    // Advance beyond the debounce timeout (300ms) from the last change
+    await vi.advanceTimersByTimeAsync(300);
+
+    // Should have been called exactly once more
+    expect(generateAppsScriptTypes).toHaveBeenCalledTimes(2);
+  });
+
+  it('should reload configuration when gasnuki.config.ts is modified', async () => {
+    const plugin = getPlugin();
+    await plugin.configResolved(mockViteConfig);
+    await plugin.configureServer(mockViteServer);
+
+    // Initial generation
+    await vi.advanceTimersByTimeAsync(300);
+    expect(generateAppsScriptTypes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        srcDir: 'server', // Default
+      }),
+    );
+
+    // Simulate config file change
+    (loadConfig as Mock).mockResolvedValue({ srcDir: 'new-server' });
+    const watcherCallback = (mockViteServer.watcher.on as Mock).mock
+      .calls[0][1];
+
+    // Vite watcher event for config file
+    await watcherCallback('change', '/project/root/gasnuki.config.ts');
+
+    // Should reload and trigger generation
+    await vi.advanceTimersByTimeAsync(300);
+    expect(loadConfig).toHaveBeenCalledTimes(2);
+    expect(generateAppsScriptTypes).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        srcDir: 'new-server',
+      }),
+    );
+  });
+
+  it('should handle target directory deletion without crashing', async () => {
+    const plugin = getPlugin({ srcDir: 'server' });
+    await plugin.configResolved(mockViteConfig);
+    await plugin.configureServer(mockViteServer);
+
+    const watcherCallback = (mockViteServer.watcher.on as Mock).mock
+      .calls[0][1];
+
+    // Simulate directory deletion (Vite watcher might trigger 'unlinkDir')
+    await expect(
+      watcherCallback('unlinkDir', '/project/root/server'),
+    ).resolves.not.toThrow();
+
+    await vi.advanceTimersByTimeAsync(300);
+    expect(generateAppsScriptTypes).toHaveBeenCalled();
+  });
 });

@@ -173,24 +173,26 @@ const findPackageJson_ = (
 
 /**
  * Recursively checks if an exports entry matches the target file path.
+ * Returns true if a match is found.
  */
 const matchesExportValue_ = (node: any, targetPath: string): boolean => {
+  const normalize = (p: string) => (p.startsWith('.') ? p : `./${p}`);
+  const normalizedTarget = normalize(targetPath);
+
   if (typeof node === 'string') {
-    // Exact match or relative path match
-    // targetPath is like "./dist/index.d.ts"
-    // node might be "./dist/index.js" or "./dist/index.d.ts"
+    const normalizedNode = normalize(node);
     return (
-      node === targetPath || node === targetPath.replace(/\.d\.ts$/, '.js')
+      normalizedNode === normalizedTarget ||
+      normalizedNode === normalizedTarget.replace(/\.d\.ts$/, '.js')
     );
   }
+
   if (typeof node === 'object' && node !== null) {
-    // Prioritize 'types' condition for .d.ts resolution
-    if (node.types && node.types === targetPath) {
+    if (node.types && matchesExportValue_(node.types, targetPath)) {
       return true;
     }
-    // Recursively check nested conditions
     for (const key in node) {
-      if (matchesExportValue_(node[key], targetPath)) {
+      if (key !== 'types' && matchesExportValue_(node[key], targetPath)) {
         return true;
       }
     }
@@ -227,14 +229,17 @@ const resolveNodeModuleSpecifier_ = (filePath: string): string | null => {
     for (const key in pkg.content.exports) {
       const exportValue = pkg.content.exports[key];
       // key is the exported path (e.g. "." or "./json")
-      // exportValue is the local path (e.g. "./dist/json.js")
 
-      // We check if our relativePath (local file) matches the exportValue
       if (matchesExportValue_(exportValue, relativePath)) {
         if (key === '.') return packageName;
         // Handle subpaths (e.g., "./json" -> "package/json")
-        // key starts with ./
-        return path.posix.join(packageName, key);
+        const subPath = key.startsWith('./') ? key.slice(2) : key;
+        console.log(`[gasnuki] Matched key: ${key}, subPath: ${subPath}`);
+        return `${packageName}/${subPath}`;
+      } else {
+        console.log(
+          `[gasnuki] No match for ${key}: ${JSON.stringify(exportValue)} vs ${relativePath} (pkgRoot: ${packageRoot}, file: ${filePath})`,
+        );
       }
     }
   }

@@ -48,33 +48,44 @@ export function gasnuki(options?: UserConfig): Plugin {
 
     async configResolved(config: ResolvedConfig) {
       projectRoot = config.root;
-      const fileConfig = await loadConfig(projectRoot);
-      const defaultOptions: Omit<GenerateOptions, 'watch' | 'project'> = {
-        srcDir: 'server',
-        outDir: 'types',
-        outputFile: 'appsscript.ts',
-      };
-      gasnukiOptions = {
-        ...defaultOptions,
-        ...fileConfig,
-        ...(options || {}),
-      };
+      await reloadOptions();
     },
 
     async configureServer(server: ViteDevServer) {
-      const targetDir = path.resolve(projectRoot, gasnukiOptions.srcDir);
+      // Watch for config file changes to reload options
+      server.watcher.on('all', async (_event, filePath) => {
+        const fileName = path.basename(filePath);
+        if (fileName.startsWith('gasnuki.config.')) {
+          consola.info('[gasnuki] Config file changed, reloading...');
+          await reloadOptions();
+          runGeneration('config change');
+          return;
+        }
 
-      // Initial generation on server startup
-      runGeneration('server startup');
-
-      // Watch for file changes
-      server.watcher.on('all', (_event, filePath) => {
+        const targetDir = path.resolve(projectRoot, gasnukiOptions.srcDir);
         const relativePath = path.relative(targetDir, filePath);
 
         if (!relativePath.startsWith('..') && relativePath !== '..') {
           runGeneration(path.relative(projectRoot, filePath));
         }
       });
+
+      // Initial generation on server startup
+      runGeneration('server startup');
     },
   };
+
+  async function reloadOptions() {
+    const fileConfig = await loadConfig(projectRoot);
+    const defaultOptions: Omit<GenerateOptions, 'watch' | 'project'> = {
+      srcDir: 'server',
+      outDir: 'types',
+      outputFile: 'appsscript.ts',
+    };
+    gasnukiOptions = {
+      ...defaultOptions,
+      ...fileConfig,
+      ...(options || {}),
+    };
+  }
 }

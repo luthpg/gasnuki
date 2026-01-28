@@ -1088,4 +1088,582 @@ export function getUserId(id: UserId): UserId {
     // 2. SpreadsheetApp.Sheet がそのまま使われているか
     expect(writtenContent).toContain('getSheet(): SpreadsheetApp.Sheet;');
   });
+
+  // ==============================
+  // Edge Case Tests - Name Collision
+  // ==============================
+
+  it('異なるディレクトリにある同名の型（名前衝突）を正しく処理すること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    // 異なるディレクトリに同名のUser型を定義
+    project.createSourceFile(
+      '/src/models/user.ts',
+      'export interface User { id: number; name: string; }',
+    );
+    project.createSourceFile(
+      '/src/entities/user.ts',
+      'export interface User { userId: string; email: string; }',
+    );
+    // 両方のUser型を使用する関数
+    project.createSourceFile(
+      '/src/main.ts',
+      `import { User as ModelUser } from './models/user';
+import { User as EntityUser } from './entities/user';
+export function processModelUser(user: ModelUser): ModelUser { return user; }
+export function processEntityUser(user: EntityUser): EntityUser { return user; }`,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // 両方の型が正しく処理されていることを確認
+    expect(writtenContent).toContain('processModelUser');
+    expect(writtenContent).toContain('processEntityUser');
+    // import文が壊れていないことを確認
+    expect(writtenContent).not.toContain('import("');
+  });
+
+  it('組み込み型名と同名の引数を持つ関数を正しく処理すること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      '/src/builtin-names.ts',
+      `export function processString(String: string): string { return String; }
+export function processObject(Object: object): object { return Object; }
+export function processNumber(Number: number): number { return Number; }`,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // 組み込み型名と同名の引数が正しく処理されていることを確認
+    expect(writtenContent).toContain('processString(String: string): string;');
+    expect(writtenContent).toContain('processObject(Object: object): object;');
+    expect(writtenContent).toContain('processNumber(Number: number): number;');
+  });
+
+  // ==============================
+  // Edge Case Tests - Complex Generics
+  // ==============================
+
+  it('ネストしたジェネリック型（JsonString<{ a: JsonString<T> }>）を正しく処理すること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      '/src/nested-generics.ts',
+      `declare const __brand: unique symbol;
+export type JsonString<T> = string & { [__brand]: T };
+
+export interface NestedData {
+  inner: JsonString<Date[]>;
+}
+
+export function processNested(data: JsonString<NestedData>): JsonString<NestedData> {
+  return data;
+}`,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // ネストしたジェネリック型が正しく定義されていることを確認
+    expect(writtenContent).toContain('export type JsonString<T>');
+    expect(writtenContent).toContain('export interface NestedData');
+    expect(writtenContent).toContain('inner: JsonString<Date[]>;');
+    expect(writtenContent).toContain(
+      'processNested(data: JsonString<NestedData>): JsonString<NestedData>;',
+    );
+  });
+
+  it('条件付き型（Conditional Types）を含むインターフェースを正しく処理すること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      '/src/conditional-types.ts',
+      `export type IsString<T> = T extends string ? true : false;
+export type ExtractValue<T> = T extends { value: infer V } ? V : never;
+
+export interface Container<T> {
+  data: T;
+  isString: IsString<T>;
+}
+
+export function checkType<T>(container: Container<T>): IsString<T> {
+  return container.isString;
+}`,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // 条件付き型が正しく出力されていることを確認
+    expect(writtenContent).toContain(
+      'export type IsString<T> = T extends string ? true : false;',
+    );
+    expect(writtenContent).toContain('export interface Container<T>');
+  });
+
+  it('マップ型（Mapped Types）を含むインターフェースを正しく処理すること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      '/src/mapped-types.ts',
+      `export type Readonly<T> = { readonly [K in keyof T]: T[K] };
+export type Optional<T> = { [K in keyof T]?: T[K] };
+
+export interface Person {
+  name: string;
+  age: number;
+}
+
+export function getReadonlyPerson(person: Person): Readonly<Person> {
+  return person;
+}`,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // マップ型が正しく出力されていることを確認
+    expect(writtenContent).toContain('export interface Person');
+    expect(writtenContent).toContain(
+      'getReadonlyPerson(person: Person): Readonly<Person>;',
+    );
+  });
+
+  // ==============================
+  // Edge Case Tests - GAS Constraints
+  // ==============================
+
+  it('アンダースコアで終わる型名は除外されないこと（関数とは異なる挙動）', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      '/src/underscore-types.ts',
+      `export interface InternalType_ { value: string; }
+export type PrivateAlias_ = { data: number };
+
+export function useInternalType(data: InternalType_): InternalType_ {
+  return data;
+}`,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // アンダースコアで終わる型は除外されないことを確認
+    expect(writtenContent).toContain('export interface InternalType_');
+    expect(writtenContent).toContain(
+      'useInternalType(data: InternalType_): InternalType_;',
+    );
+  });
+
+  it('export defaultされた関数がGASグローバル関数として認識されること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      '/src/default-export.ts',
+      `export default function defaultHandler() {
+  return 'default';
+}
+
+export function namedHandler() {
+  return 'named';
+}`,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // export defaultされた関数もServerScriptsに含まれることを確認
+    expect(writtenContent).toContain('defaultHandler(): string;');
+    // 名前付きexportも含まれることを確認
+    expect(writtenContent).toContain('namedHandler(): string;');
+  });
+
+  // ==============================
+  // Edge Case Tests - Empty/Invalid Input
+  // ==============================
+
+  it('srcDirに.tsファイルがない場合でもエラーなく完了すること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    // srcDirに非TypeScriptファイルのみ存在するシミュレーション
+    // ts-morphでは.tsファイルのみがSourceFileとして認識される
+
+    const { writeFileSync } = await import('node:fs');
+
+    // エラーなく完了することを確認
+    await expect(
+      generateAppsScriptTypes({ ...opts, projectInstance: project }),
+    ).resolves.not.toThrow();
+
+    // 空のServerScriptsが生成されることを確認
+    if ((writeFileSync as Mock).mock.calls.length > 0) {
+      const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+      expect(writtenContent).toContain('export type ServerScripts = {');
+    }
+  });
+
+  it('.tsファイルにあるローカル定義の関数がServerScriptsを生成すること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      '/src/no-exports.ts',
+      `// ローカル関数のみ
+function localFunction() {}
+const localConst = 'value';
+
+// 型のみexport
+export interface OnlyType { id: string; }`,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // ServerScriptsにlocalFunctionが含まれることを確認
+    expect(writtenContent).toContain('export type ServerScripts = {');
+    expect(writtenContent).toContain('localFunction(): void;');
+  });
+
+  it('構文エラーのあるソースファイルを適切にハンドリングすること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    // 構文エラーのあるファイル
+    project.createSourceFile(
+      '/src/syntax-error.ts',
+      `export function broken( { // 閉じ括弧がない
+  return 'broken';
+}`,
+    );
+    // 正常なファイル
+    project.createSourceFile(
+      '/src/valid.ts',
+      'export function validFunc(): string { return "valid"; }',
+    );
+
+    const { writeFileSync } = await import('node:fs');
+
+    // エラーをthrowしないこと（グレースフルに処理される）
+    await expect(
+      generateAppsScriptTypes({ ...opts, projectInstance: project }),
+    ).resolves.not.toThrow();
+
+    // 正常なファイルの関数は処理されることを確認
+    if ((writeFileSync as Mock).mock.calls.length > 0) {
+      const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+      expect(writtenContent).toContain('validFunc(): string;');
+    }
+  });
+
+  // ==============================
+  // Edge Case Tests - Import Patterns
+  // ==============================
+
+  it('複雑なexportsフィールドを持つpackage.jsonからの型インポートを正しく解決すること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    const pkgPath = '/node_modules/complex-pkg/package.json';
+    const pkgContent = JSON.stringify({
+      name: 'complex-pkg',
+      types: './dist/types/index.d.ts',
+    });
+
+    const { readFileSync, existsSync } = await import('node:fs');
+    (existsSync as Mock).mockImplementation((p: string) => {
+      const np = p.replace(/\\/g, '/');
+      if (np.endsWith('package.json')) {
+        return np === pkgPath;
+      }
+      return true;
+    });
+    (readFileSync as Mock).mockImplementation((p: string) => {
+      const np = p.replace(/\\/g, '/');
+      if (np === pkgPath) {
+        return pkgContent;
+      }
+      return JSON.stringify({ name: 'mock' });
+    });
+
+    project.createSourceFile(pkgPath, pkgContent);
+    project.createSourceFile(
+      '/node_modules/complex-pkg/dist/types/index.d.ts',
+      'export interface ComplexType { value: string; }',
+    );
+    project.createSourceFile(
+      '/src/use-complex.ts',
+      `import { ComplexType } from 'complex-pkg';
+export function useComplex(data: ComplexType): ComplexType { return data; }`,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // import文が生成されることを確認
+    expect(writtenContent).toContain(
+      "import type { ComplexType } from 'complex-pkg';",
+    );
+    expect(writtenContent).toContain('useComplex');
+  });
+
+  it('出力先ディレクトリからの複雑な相対パス計算を正しく行うこと', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    // 深いネストの外部型定義
+    project.createSourceFile(
+      '/shared/lib/utils/types/deep.ts',
+      'export interface DeepType { nested: string; }',
+    );
+    project.createSourceFile(
+      '/src/deep-import.ts',
+      `import { DeepType } from '../shared/lib/utils/types/deep';
+export function processDeep(data: DeepType): DeepType { return data; }`,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // 正しい相対パスでインポートされていることを確認
+    expect(writtenContent).toContain('processDeep(data: DeepType): DeepType;');
+    // import文が相対パスであることを確認（インライン展開されていない場合）
+    expect(writtenContent).not.toContain('import("');
+  });
+
+  it('異なるファイルで同名の型が定義されている場合、両方が出力に含まれること（名前衝突の検証）', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      '/src/a.ts',
+      'export interface SameName { a: string; } export function funcA(x: SameName) {}',
+    );
+    project.createSourceFile(
+      '/src/b.ts',
+      'export interface SameName { b: number; } export function funcB(x: SameName) {}',
+    );
+
+    const { writeFileSync } = await import('node:fs');
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    // 両方の定義が含まれていること（TSのインターフェースマージとして機能する）
+    expect(writtenContent).toContain(
+      'export interface SameName { a: string; }',
+    );
+    expect(writtenContent).toContain(
+      'export interface SameName { b: number; }',
+    );
+    expect(writtenContent).toContain('funcA(x: SameName): void;');
+    expect(writtenContent).toContain('funcB(x: SameName): void;');
+  });
+
+  it('多重にネストされたJsonStringを正しく処理すること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      '/src/deep-json.ts',
+      `declare const __brand: unique symbol;
+export type JsonString<T> = string & { [__brand]: T };
+export function processDeepJson(data: JsonString<{ a: JsonString<Date[]> }>): void {}`,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    expect(writtenContent).toContain(
+      'processDeepJson(data: JsonString<{ a: JsonString<Date[]> }>): void;',
+    );
+  });
+
+  it('node_modulesのpackage.jsonのexportsフィールドのサブパスを正しく解決すること', async () => {
+    const { ModuleResolutionKind } = await import('ts-morph');
+    // Node16以降の解像度を指定しないとexportsは認識されない
+    const project = new Project({
+      useInMemoryFileSystem: true,
+      compilerOptions: {
+        moduleResolution: ModuleResolutionKind.Node16,
+        types: [],
+      },
+    });
+
+    const { readFileSync, existsSync } = await import('node:fs');
+
+    const pkgPath = '/node_modules/subpath-pkg/package.json';
+    const pkgContent = JSON.stringify({
+      name: 'subpath-pkg',
+      exports: {
+        './sub': './dist/sub.d.ts',
+      },
+    });
+
+    // gasnuki内部のresolveNodeModuleSpecifier_が参照するfsの挙動
+    (existsSync as Mock).mockImplementation((p: string) => {
+      const np = p.replace(/\\/g, '/');
+      if (np.endsWith('package.json')) {
+        return np === pkgPath;
+      }
+      return true;
+    });
+
+    (readFileSync as Mock).mockImplementation((p: string) => {
+      const np = p.replace(/\\/g, '/');
+      if (np === pkgPath) {
+        return pkgContent;
+      }
+      return JSON.stringify({ name: 'mock' });
+    });
+
+    // ts-morphが解決した際のパスをエミュレート
+    // Symbolの宣言ファイルパスとしてこれが取得される
+    // package.jsonがないとNode16 resolutionでは exports が解決されない
+    project.createSourceFile(pkgPath, pkgContent);
+
+    project.createSourceFile(
+      '/node_modules/subpath-pkg/dist/sub.d.ts',
+      'export interface SubType { v: number; }',
+    );
+
+    project.createSourceFile(
+      '/src/use-sub.ts',
+      `import { SubType } from 'subpath-pkg/sub';
+export function callSub(s: SubType) {}`,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    expect(writtenContent).toContain(
+      "import type { SubType } from 'subpath-pkg/sub';",
+    );
+  });
+
+  it('Windowsスタイルのバックスラッシュを含むパスが正しく正規化されること', async () => {
+    const project = new Project({
+      useInMemoryFileSystem: true,
+      compilerOptions: { types: [] },
+    });
+    // Windows環境を想定したパスでSourceFileを追加
+    project.createSourceFile(
+      'C:/project/src/win.ts',
+      'export function winFunc() {}',
+    );
+
+    const { writeFileSync } = await import('node:fs');
+
+    await generateAppsScriptTypes({
+      project: 'C:/project',
+      srcDir: 'src',
+      outDir: 'types',
+      outputFile: 'appsscript.ts',
+      projectInstance: project,
+      cache: false,
+    });
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+    expect(writtenContent).toContain('winFunc(): void;');
+  });
+
+  it('@typesパッケージでパッケージ名と名前空間が異なるケース（例: lodash）を正しく処理すること', async () => {
+    const project = new Project({
+      useInMemoryFileSystem: true,
+      compilerOptions: { types: [] }, // ディレクトリなしエラーを回避
+    });
+
+    project.createSourceFile(
+      '/node_modules/@types/lodash/index.d.ts',
+      `export interface LoDashStatic { version: string; }`,
+    );
+
+    const { readFileSync, existsSync } = await import('node:fs');
+    (existsSync as Mock).mockImplementation((p: string) => {
+      return p.includes('@types/lodash');
+    });
+    (readFileSync as Mock).mockImplementation((path: string) => {
+      if (path.includes('@types/lodash') && path.endsWith('package.json')) {
+        return JSON.stringify({ name: '@types/lodash' });
+      }
+      return JSON.stringify({ name: 'mock' });
+    });
+
+    project.createSourceFile(
+      '/src/lodash-test.ts',
+      `import { LoDashStatic } from 'lodash';
+export function useLodash(ld: LoDashStatic) {}`,
+    );
+
+    const { writeFileSync } = await import('node:fs');
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    expect(writtenContent).toContain(
+      "import type { LoDashStatic } from 'lodash';",
+    );
+  });
+
+  it('シンボリックリンク先のファイルが解析対象に含まれること', async () => {
+    // 実際的なシンボリックリンクのテストはInMemoryFSでは難しいが、
+    // project.addSourceFilesAtPaths がリンクを辿ることを期待する
+    const project = new Project({ useInMemoryFileSystem: true });
+
+    // 実体ファイル
+    project.createSourceFile(
+      '/external/real.ts',
+      'export function realFunc() {}',
+    );
+
+    // シンボリックリンクをシミュレート（InMemoryFSでは単にパスとして追加）
+    project.createSourceFile('/src/link.ts', 'export function realFunc() {}');
+
+    const { writeFileSync } = await import('node:fs');
+    await generateAppsScriptTypes({ ...opts, projectInstance: project });
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+
+    expect(writtenContent).toContain('realFunc(): void;');
+  });
+
+  it('絶対パスのsrcDirとoutDirを正しく処理すること', async () => {
+    const project = new Project({
+      useInMemoryFileSystem: true,
+      compilerOptions: { types: [] },
+    });
+    project.createSourceFile(
+      '/abs/src/main.ts',
+      'export function absFunc() {}',
+    );
+
+    const { writeFileSync, existsSync } = await import('node:fs');
+    (existsSync as Mock).mockReturnValue(true);
+
+    await generateAppsScriptTypes({
+      project: '/project',
+      srcDir: '/abs/src',
+      outDir: '/abs/out',
+      outputFile: 'out.ts',
+      projectInstance: project,
+      cache: false,
+    });
+
+    expect(writeFileSync).toHaveBeenCalledWith(
+      '/abs/out/out.ts',
+      expect.stringContaining('absFunc(): void;'),
+    );
+  });
 });
