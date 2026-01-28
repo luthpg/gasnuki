@@ -1,10 +1,10 @@
 # @ciderjs/gasnuki
 
 [![README-en](https://img.shields.io/badge/English-blue?logo=ReadMe)](./README.md)
-[![Test Coverage](https://img.shields.io/badge/test%20coverage-89.02%25-green)](https://github.com/luthpg/gasnuki)
+[![Test Coverage](https://img.shields.io/badge/test%20coverage-91.22%25-brightgreen)](https://github.com/luthpg/gasnuki)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/@ciderjs/gasnuki.svg)](https://www.npmjs.com/package/@ciderjs/gasnuki)
-![NPM Downloads](https://img.shields.io/npm/dw/@ciderjs/gasnuki)
+[![NPM Downloads](https://img.shields.io/npm/dw/@ciderjs/gasnuki)](https://www.npmjs.com/package/@ciderjs/gasnuki)
 [![GitHub issues](https://img.shields.io/github/issues/luthpg/gasnuki.svg)](https://github.com/luthpg/gasnuki/issues)
 
 Google Apps Script クライアントサイドAPIの型定義・ユーティリティ

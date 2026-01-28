@@ -190,4 +190,28 @@ describe('loadConfig', () => {
     expect(consola.success).not.toHaveBeenCalled();
     expect(consola.error).not.toHaveBeenCalled();
   });
+
+  it('絶対パスで指定されたsrcDirとoutDirを保持すること', async () => {
+    const { existsSync } = await import('node:fs');
+    const { createJiti } = await import('jiti');
+    const path = await import('node:path');
+
+    (existsSync as any).mockReturnValueOnce(true);
+
+    const absSrc = path.resolve('/absolute/src');
+    const absOut = path.resolve('/absolute/out');
+
+    const importMock = vi.fn(() =>
+      Promise.resolve({
+        srcDir: absSrc,
+        outDir: absOut,
+      }),
+    );
+    (createJiti as any).mockReturnValue({ import: importMock });
+
+    const config = await loadConfig('/project');
+
+    expect(config.srcDir).toBe(absSrc);
+    expect(config.outDir).toBe(absOut);
+  });
 });
