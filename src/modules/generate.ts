@@ -40,6 +40,37 @@ const computeSourceHash = (
   return hash.digest('hex');
 };
 
+// Helper to strip import("...") from types
+const cleanType = (t: string) =>
+  t
+    .replace(/import\(".*?"\)\.default\./g, '')
+    .replace(/import\(".*?"\)\./g, '');
+
+const simplifyType = (type: Type, node: Node): string | null => {
+  const aliasSymbol = type.getAliasSymbol();
+  if (aliasSymbol && ['Pick', 'Omit'].includes(aliasSymbol.getName())) {
+    const props = type.getProperties();
+    const members = props.map((prop) => {
+      const name = prop.getName();
+      const declarations = prop.getDeclarations();
+      let propType = prop.getTypeAtLocation(node);
+      // Fallback if type is any or unresolved
+      if (
+        (!propType || propType.getText() === 'any') &&
+        declarations.length > 0
+      ) {
+        propType = declarations[0].getType();
+      }
+
+      const typeText = cleanType(propType.getText(node));
+      const isOptional = prop.hasFlags(SymbolFlags.Optional);
+      return `${name}${isOptional ? '?' : ''}: ${typeText}`;
+    });
+    return `{ ${members.join('; ')} }`;
+  }
+  return null;
+};
+
 const getInterfaceMethodDefinition_ = (
   name: string,
   node: FunctionDeclaration | ArrowFunction | FunctionExpression,
@@ -54,10 +85,16 @@ const getInterfaceMethodDefinition_ = (
     .getParameters()
     .map((param) => {
       const paramName = param.getName();
-      const type =
+      let type =
         param.getTypeNode()?.getText() ??
         param.getType().getText(node) ??
         'any';
+
+      const simplified = simplifyType(param.getType(), node);
+      if (simplified) {
+        type = simplified;
+      }
+
       const questionToken = param.hasQuestionToken() ? '?' : '';
       return `${paramName}${questionToken}: ${type}`;
     })
@@ -65,10 +102,14 @@ const getInterfaceMethodDefinition_ = (
 
   const returnTypeNode = node.getReturnTypeNode();
   let returnType: string;
-  if (returnTypeNode != null) {
+  const inferredReturnType = node.getReturnType();
+
+  const simplifiedReturn = simplifyType(inferredReturnType, node);
+  if (simplifiedReturn) {
+    returnType = simplifiedReturn;
+  } else if (returnTypeNode != null) {
     returnType = returnTypeNode.getText();
   } else {
-    const inferredReturnType = node.getReturnType();
     if (inferredReturnType.isVoid()) {
       returnType = 'void';
     } else {
@@ -94,12 +135,6 @@ const getInterfaceMethodDefinition_ = (
       jsDocString = `${firstDoc.getFullText().trim()}\n`;
     }
   }
-
-  // Helper to strip import("...") from types
-  const cleanType = (t: string) =>
-    t
-      .replace(/import\(".*?"\)\.default\./g, '')
-      .replace(/import\(".*?"\)\./g, '');
 
   const cleanedReturnType = cleanType(returnType);
   const cleanedParameters = parameters.replace(
