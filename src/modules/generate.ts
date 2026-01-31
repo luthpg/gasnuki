@@ -269,12 +269,7 @@ const resolveNodeModuleSpecifier_ = (filePath: string): string | null => {
         if (key === '.') return packageName;
         // Handle subpaths (e.g., "./json" -> "package/json")
         const subPath = key.startsWith('./') ? key.slice(2) : key;
-        console.log(`[gasnuki] Matched key: ${key}, subPath: ${subPath}`);
         return `${packageName}/${subPath}`;
-      } else {
-        console.log(
-          `[gasnuki] No match for ${key}: ${JSON.stringify(exportValue)} vs ${relativePath} (pkgRoot: ${packageRoot}, file: ${filePath})`,
-        );
       }
     }
   }
@@ -302,17 +297,21 @@ export const generateAppsScriptTypes = async ({
   outputFile,
   projectInstance,
   cache = true, // Default to true
+  quiet,
 }: Omit<GenerateOptions, 'watch'> & {
   projectInstance?: Project;
   cache?: boolean;
+  quiet?: boolean;
 }) => {
   const absoluteSrcDir = path.resolve(projectPath, srcDir);
   const absoluteOutDir = path.resolve(projectPath, outDir);
   const absoluteOutputFile = path.resolve(absoluteOutDir, outputFile);
 
-  consola.info('Starting AppsScript type generation with gasnuki...');
-  consola.info(`  AppsScript Source Directory: ${absoluteSrcDir}`);
-  consola.info(`  Output File: ${absoluteOutputFile}`);
+  if (!quiet) {
+    consola.info('Starting AppsScript type generation with gasnuki...');
+    consola.info(`  AppsScript Source Directory: ${absoluteSrcDir}`);
+    consola.info(`  Output File: ${absoluteOutputFile}`);
+  }
 
   let tsConfigFilePath = path.resolve(projectPath, 'tsconfig.json');
   if (fs.existsSync(path.resolve(projectPath, 'tsconfig.app.json'))) {
@@ -335,7 +334,9 @@ export const generateAppsScriptTypes = async ({
   project.addSourceFilesAtPaths([sourceFilesPattern, testFilesPattern]);
 
   const sourceFiles = project.getSourceFiles();
-  consola.info(`Found ${sourceFiles.length} source file(s).`);
+  if (!quiet) {
+    consola.info(`Found ${sourceFiles.length} source file(s).`);
+  }
 
   if (cache) {
     const currentHash = computeSourceHash(sourceFiles);
@@ -346,9 +347,11 @@ export const generateAppsScriptTypes = async ({
       generationCache.get(cacheKey) === currentHash &&
       fs.existsSync(absoluteOutputFile)
     ) {
-      consola.success(
-        `Skipping generation: Source files have not changed (Hash: ${currentHash.slice(0, 8)}).`,
-      );
+      if (!quiet) {
+        consola.success(
+          `Skipping generation: Source files have not changed (Hash: ${currentHash.slice(0, 8)}).`,
+        );
+      }
       return;
     }
 
@@ -897,7 +900,9 @@ export const generateAppsScriptTypes = async ({
   // 4. Assemble the output file content
   if (!fs.existsSync(absoluteOutDir)) {
     fs.mkdirSync(absoluteOutDir, { recursive: true });
-    consola.info(`Created output directory: ${absoluteOutDir}`);
+    if (!quiet) {
+      consola.info(`Created output directory: ${absoluteOutDir}`);
+    }
   }
 
   const generatorName = 'gasnuki';
@@ -935,16 +940,20 @@ export const generateAppsScriptTypes = async ({
       )
       .join('\n\n');
     bodyContent += `export type ServerScripts = {\n${formattedMethods}\n}\n`;
-    consola.info(
-      `Interface 'ServerScript' type definitions written to ${absoluteOutputFile} (${methodDefinitions.length} function(s), ${
-        exportedTypeDefinitions.length + inlineDefinitions.size
-      } type(s)).`,
-    );
+    if (!quiet) {
+      consola.info(
+        `Interface 'ServerScript' type definitions written to ${absoluteOutputFile} (${methodDefinitions.length} function(s), ${
+          exportedTypeDefinitions.length + inlineDefinitions.size
+        } type(s)).`,
+      );
+    }
   } else {
     bodyContent += 'export type ServerScripts = {}\n';
-    consola.info(
-      `Interface 'ServerScript' type definitions written to ${absoluteOutputFile} (no functions found).`,
-    );
+    if (!quiet) {
+      consola.info(
+        `Interface 'ServerScript' type definitions written to ${absoluteOutputFile} (no functions found).`,
+      );
+    }
   }
 
   // Add client-side helper types

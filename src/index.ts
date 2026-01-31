@@ -28,7 +28,9 @@ export const generateTypes = async ({
 
   const runGeneration = async (triggeredBy?: string) => {
     const reason = triggeredBy ? ` (${triggeredBy})` : '';
-    consola.info(`Generating AppsScript types${reason}...`);
+    if (!watch) {
+      consola.info(`Generating AppsScript types${reason}...`);
+    }
     try {
       await generateAppsScriptTypes({
         project,
@@ -36,8 +38,13 @@ export const generateTypes = async ({
         outDir,
         outputFile,
         cache,
+        quiet: watch,
       });
-      consola.info('Type generation complete.');
+      if (watch) {
+        consola.success(`Generated AppsScript types${reason}.`);
+      } else {
+        consola.info('Type generation complete.');
+      }
     } catch (e) {
       consola.error(`Type generation failed: ${(e as Error).message}`, e);
     }

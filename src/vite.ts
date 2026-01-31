@@ -27,13 +27,13 @@ export function gasnuki(options?: UserConfig): Plugin {
     debounce(async () => {
       const reason = triggeredBy ? ` (triggered by: ${triggeredBy})` : '';
       console.log('');
-      consola.info(`[gasnuki] Generating AppsScript types${reason}...`);
       try {
         await generateAppsScriptTypes({
           ...gasnukiOptions,
           project: projectRoot,
+          quiet: true,
         });
-        consola.success('[gasnuki] Type generation complete.');
+        consola.success(`[gasnuki] Generated AppsScript types${reason}.`);
       } catch (e) {
         consola.error(
           `[gasnuki] Type generation failed: ${(e as Error).message}`,
