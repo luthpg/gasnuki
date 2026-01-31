@@ -78,6 +78,7 @@ describe('vite-plugin-gasnuki', () => {
       outDir: 'types',
       outputFile: 'appsscript.ts',
       project: '/project/root',
+      quiet: true, // vite.ts passes quiet: true
     });
   });
 
@@ -92,6 +93,7 @@ describe('vite-plugin-gasnuki', () => {
       expect.objectContaining({
         srcDir: 'custom/server',
         outDir: 'types',
+        quiet: true,
       }),
     );
   });
@@ -110,6 +112,7 @@ describe('vite-plugin-gasnuki', () => {
       expect.objectContaining({
         srcDir: 'vite/config/server',
         outDir: 'custom/types',
+        quiet: true,
       }),
     );
   });
@@ -219,6 +222,7 @@ describe('vite-plugin-gasnuki', () => {
     expect(generateAppsScriptTypes).toHaveBeenLastCalledWith(
       expect.objectContaining({
         srcDir: 'new-server',
+        quiet: true,
       }),
     );
   });

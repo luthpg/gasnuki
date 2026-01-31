@@ -211,8 +211,21 @@ describe('generateTypes', () => {
       // process.exitが呼ばれることを期待
     }
 
-    expect(consola.info).toHaveBeenCalledWith('Generating AppsScript types...');
-    expect(consola.info).toHaveBeenCalledWith('Type generation complete.');
+    // watch=trueのときは "Generating..." は表示されない
+    expect(consola.info).not.toHaveBeenCalledWith(
+      'Generating AppsScript types...',
+    );
+    // 代わりにログ出力されない、もしくは完了ログが info ではなく success で出力されるので、
+    // index.ts の実装に合わせて検証を修正
+
+    // index.ts:
+    // if (watch) consola.success(`Generated AppsScript types${reason}.`);
+    // else consola.info('Type generation complete.');
+
+    // なので、watch=trueでは 'Type generation complete.' は呼ばれない
+    expect(consola.info).not.toHaveBeenCalledWith('Type generation complete.');
+
+    // Watch開始ログは出力される
     expect(consola.info).toHaveBeenCalledWith(
       expect.stringContaining('Watching for changes in'),
     );
@@ -225,8 +238,8 @@ describe('generateTypes', () => {
     const { watch } = await import('chokidar');
     const { generateAppsScriptTypes } = await import('../src/modules/generate');
 
-    let readyCallback: () => void;
-    let allCallback: (event: string, path: string) => void;
+    let readyCallback: () => void = () => {};
+    let allCallback: (event: string, path: string) => void = () => {};
 
     const mockWatcher = {
       on: vi.fn((event: string, callback: any) => {

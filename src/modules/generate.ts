@@ -40,6 +40,37 @@ const computeSourceHash = (
   return hash.digest('hex');
 };
 
+// Helper to strip import("...") from types
+const cleanType = (t: string) =>
+  t
+    .replace(/import\(".*?"\)\.default\./g, '')
+    .replace(/import\(".*?"\)\./g, '');
+
+const simplifyType = (type: Type, node: Node): string | null => {
+  const aliasSymbol = type.getAliasSymbol();
+  if (aliasSymbol && ['Pick', 'Omit'].includes(aliasSymbol.getName())) {
+    const props = type.getProperties();
+    const members = props.map((prop) => {
+      const name = prop.getName();
+      const declarations = prop.getDeclarations();
+      let propType = prop.getTypeAtLocation(node);
+      // Fallback if type is any or unresolved
+      if (
+        (!propType || propType.getText() === 'any') &&
+        declarations.length > 0
+      ) {
+        propType = declarations[0].getType();
+      }
+
+      const typeText = cleanType(propType.getText(node));
+      const isOptional = prop.hasFlags(SymbolFlags.Optional);
+      return `${name}${isOptional ? '?' : ''}: ${typeText}`;
+    });
+    return `{ ${members.join('; ')} }`;
+  }
+  return null;
+};
+
 const getInterfaceMethodDefinition_ = (
   name: string,
   node: FunctionDeclaration | ArrowFunction | FunctionExpression,
@@ -54,10 +85,16 @@ const getInterfaceMethodDefinition_ = (
     .getParameters()
     .map((param) => {
       const paramName = param.getName();
-      const type =
+      let type =
         param.getTypeNode()?.getText() ??
         param.getType().getText(node) ??
         'any';
+
+      const simplified = simplifyType(param.getType(), node);
+      if (simplified) {
+        type = simplified;
+      }
+
       const questionToken = param.hasQuestionToken() ? '?' : '';
       return `${paramName}${questionToken}: ${type}`;
     })
@@ -65,10 +102,14 @@ const getInterfaceMethodDefinition_ = (
 
   const returnTypeNode = node.getReturnTypeNode();
   let returnType: string;
-  if (returnTypeNode != null) {
+  const inferredReturnType = node.getReturnType();
+
+  const simplifiedReturn = simplifyType(inferredReturnType, node);
+  if (simplifiedReturn) {
+    returnType = simplifiedReturn;
+  } else if (returnTypeNode != null) {
     returnType = returnTypeNode.getText();
   } else {
-    const inferredReturnType = node.getReturnType();
     if (inferredReturnType.isVoid()) {
       returnType = 'void';
     } else {
@@ -94,12 +135,6 @@ const getInterfaceMethodDefinition_ = (
       jsDocString = `${firstDoc.getFullText().trim()}\n`;
     }
   }
-
-  // Helper to strip import("...") from types
-  const cleanType = (t: string) =>
-    t
-      .replace(/import\(".*?"\)\.default\./g, '')
-      .replace(/import\(".*?"\)\./g, '');
 
   const cleanedReturnType = cleanType(returnType);
   const cleanedParameters = parameters.replace(
@@ -234,12 +269,7 @@ const resolveNodeModuleSpecifier_ = (filePath: string): string | null => {
         if (key === '.') return packageName;
         // Handle subpaths (e.g., "./json" -> "package/json")
         const subPath = key.startsWith('./') ? key.slice(2) : key;
-        console.log(`[gasnuki] Matched key: ${key}, subPath: ${subPath}`);
         return `${packageName}/${subPath}`;
-      } else {
-        console.log(
-          `[gasnuki] No match for ${key}: ${JSON.stringify(exportValue)} vs ${relativePath} (pkgRoot: ${packageRoot}, file: ${filePath})`,
-        );
       }
     }
   }
@@ -267,17 +297,21 @@ export const generateAppsScriptTypes = async ({
   outputFile,
   projectInstance,
   cache = true, // Default to true
+  quiet,
 }: Omit<GenerateOptions, 'watch'> & {
   projectInstance?: Project;
   cache?: boolean;
+  quiet?: boolean;
 }) => {
   const absoluteSrcDir = path.resolve(projectPath, srcDir);
   const absoluteOutDir = path.resolve(projectPath, outDir);
   const absoluteOutputFile = path.resolve(absoluteOutDir, outputFile);
 
-  consola.info('Starting AppsScript type generation with gasnuki...');
-  consola.info(`  AppsScript Source Directory: ${absoluteSrcDir}`);
-  consola.info(`  Output File: ${absoluteOutputFile}`);
+  if (!quiet) {
+    consola.info('Starting AppsScript type generation with gasnuki...');
+    consola.info(`  AppsScript Source Directory: ${absoluteSrcDir}`);
+    consola.info(`  Output File: ${absoluteOutputFile}`);
+  }
 
   let tsConfigFilePath = path.resolve(projectPath, 'tsconfig.json');
   if (fs.existsSync(path.resolve(projectPath, 'tsconfig.app.json'))) {
@@ -300,7 +334,9 @@ export const generateAppsScriptTypes = async ({
   project.addSourceFilesAtPaths([sourceFilesPattern, testFilesPattern]);
 
   const sourceFiles = project.getSourceFiles();
-  consola.info(`Found ${sourceFiles.length} source file(s).`);
+  if (!quiet) {
+    consola.info(`Found ${sourceFiles.length} source file(s).`);
+  }
 
   if (cache) {
     const currentHash = computeSourceHash(sourceFiles);
@@ -311,9 +347,11 @@ export const generateAppsScriptTypes = async ({
       generationCache.get(cacheKey) === currentHash &&
       fs.existsSync(absoluteOutputFile)
     ) {
-      consola.success(
-        `Skipping generation: Source files have not changed (Hash: ${currentHash.slice(0, 8)}).`,
-      );
+      if (!quiet) {
+        consola.success(
+          `Skipping generation: Source files have not changed (Hash: ${currentHash.slice(0, 8)}).`,
+        );
+      }
       return;
     }
 
@@ -862,7 +900,9 @@ export const generateAppsScriptTypes = async ({
   // 4. Assemble the output file content
   if (!fs.existsSync(absoluteOutDir)) {
     fs.mkdirSync(absoluteOutDir, { recursive: true });
-    consola.info(`Created output directory: ${absoluteOutDir}`);
+    if (!quiet) {
+      consola.info(`Created output directory: ${absoluteOutDir}`);
+    }
   }
 
   const generatorName = 'gasnuki';
@@ -900,16 +940,20 @@ export const generateAppsScriptTypes = async ({
       )
       .join('\n\n');
     bodyContent += `export type ServerScripts = {\n${formattedMethods}\n}\n`;
-    consola.info(
-      `Interface 'ServerScript' type definitions written to ${absoluteOutputFile} (${methodDefinitions.length} function(s), ${
-        exportedTypeDefinitions.length + inlineDefinitions.size
-      } type(s)).`,
-    );
+    if (!quiet) {
+      consola.info(
+        `Interface 'ServerScript' type definitions written to ${absoluteOutputFile} (${methodDefinitions.length} function(s), ${
+          exportedTypeDefinitions.length + inlineDefinitions.size
+        } type(s)).`,
+      );
+    }
   } else {
     bodyContent += 'export type ServerScripts = {}\n';
-    consola.info(
-      `Interface 'ServerScript' type definitions written to ${absoluteOutputFile} (no functions found).`,
-    );
+    if (!quiet) {
+      consola.info(
+        `Interface 'ServerScript' type definitions written to ${absoluteOutputFile} (no functions found).`,
+      );
+    }
   }
 
   // Add client-side helper types

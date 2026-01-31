@@ -14,15 +14,25 @@ vi.mock('node:fs', () => ({
       // Path example: /node_modules/zod/package.json
       const parts = path.split(/[/\\]/);
       const nodeModulesIndex = parts.lastIndexOf('node_modules');
-      let name = 'mock-package';
       if (nodeModulesIndex !== -1 && parts.length > nodeModulesIndex + 1) {
         if (parts[nodeModulesIndex + 1].startsWith('@')) {
-          name = `${parts[nodeModulesIndex + 1]}/${parts[nodeModulesIndex + 2]}`;
-        } else {
-          name = parts[nodeModulesIndex + 1];
+          const scope = parts[nodeModulesIndex + 1];
+          const pkg = parts[nodeModulesIndex + 2];
+          // If accessing index.d.ts of scope package, name is still scope/pkg
+          return JSON.stringify({
+            name: `${scope}/${pkg}`,
+            exports: { '.': './index.js' },
+          });
         }
+        return JSON.stringify({
+          name: parts[nodeModulesIndex + 1],
+          exports: { '.': './index.js' },
+        });
       }
-      return JSON.stringify({ name, exports: { '.': './index.js' } });
+      return JSON.stringify({
+        name: 'mock-package',
+        exports: { '.': './index.js' },
+      });
     }
     return '';
   }),
@@ -234,6 +244,36 @@ type PrivateType_ = number;
         "Interface 'ServerScript' type definitions written to",
       ),
     );
+    expect(consola.info).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "Interface 'ServerScript' type definitions written to",
+      ),
+    );
+  });
+
+  it('quietオプションが有効な場合、ログ出力が抑制されること', async () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      '/src/quiet.ts',
+      'export interface Quiet { id: string; }',
+    );
+
+    const { writeFileSync } = await import('node:fs');
+    const { consola } = await import('consola');
+
+    (consola.info as unknown as Mock).mockClear();
+
+    await generateAppsScriptTypes({
+      ...opts,
+      projectInstance: project,
+      quiet: true,
+    });
+
+    const writtenContent = (writeFileSync as Mock).mock.calls[0][1];
+    expect(writtenContent).toContain('export interface Quiet');
+
+    // consola.info should NOT be called
+    expect(consola.info).not.toHaveBeenCalled();
   });
 
   it('関数と型の両方が存在する場合の出力内容', async () => {
