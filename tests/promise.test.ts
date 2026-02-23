@@ -87,7 +87,7 @@ describe('getPromisedServerScripts', () => {
   });
 
   it('Promiseが成功した場合はresolveされる', async () => {
-    let successHandler: (value: any) => void;
+    let successHandler: (value: any) => void = () => {};
     const mockMethod = vi.fn();
 
     (globalThis as any).google = {
@@ -117,7 +117,7 @@ describe('getPromisedServerScripts', () => {
   });
 
   it('Promiseが失敗した場合はrejectされる', async () => {
-    let failureHandler: (error: any) => void;
+    let failureHandler: (error: any) => void = () => {};
     const mockMethod = vi.fn();
 
     (globalThis as any).google = {
@@ -472,17 +472,70 @@ describe('getPromisedServerScripts', () => {
 
     const expectedObj = { date: new Date('2023-01-01T00:00:00.000Z') };
     const mockupFunctions = {
-      // 型定義上はエラーになる可能性があるが、ランタイムでは動作することを確認
       jsonMethod: vi.fn().mockResolvedValue(expectedObj),
     };
 
     const result = getPromisedServerScripts<{ jsonMethod: () => any }>({
-      // @ts-expect-error テストのために型エラーを無視
       mockupFunctions,
       parseJson: true,
     });
 
     const value = await result.jsonMethod();
     expect(value).toBe(expectedObj);
+  });
+
+  it('should return undefined for undefined mockupFunctions when strictMock is true (default)', () => {
+    // デフォルト（または明示的に true）の場合、未定義の関数は undefined を返し、呼び出し時にエラーになる挙動を維持する
+    const gas = getPromisedServerScripts({
+      mockupFunctions: {},
+      strictMock: true,
+    });
+    expect(gas.undefinedMethod).toBeUndefined();
+  });
+
+  it('should return a void function and log warning when strictMock is false', async () => {
+    // console.warn をスパイして警告が出ているか確認できるようにする
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const gas = getPromisedServerScripts({
+      mockupFunctions: {},
+      strictMock: false,
+    });
+
+    // 未定義のメソッドにアクセスしても undefined ではなく関数が返ってくる
+    const mockFunc = gas.undefinedMethod;
+    expect(typeof mockFunc).toBe('function');
+
+    // その関数を実行してもエラーにならず、Promise が解決される
+    const result = await (mockFunc as any)();
+    expect(result).toBeUndefined();
+
+    // 適切な警告メッセージがコンソールに出力されている
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "[gasnuki] Warning: Called undefined mock function 'undefinedMethod'",
+      ),
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('should still prioritize defined mockupFunctions even when strictMock is false', async () => {
+    const mockupFunctions = {
+      definedMethod: async () => 'real mock',
+    };
+    const gas = getPromisedServerScripts({
+      // @ts-expect-error テストのために型エラーを無視
+      mockupFunctions,
+      strictMock: false,
+    });
+
+    // 定義済みのメソッドは通常通り動作する
+    const result = await gas.definedMethod();
+    expect(result).toBe('real mock');
+
+    // 未定義のメソッドだけが void フォールバックされる
+    // @ts-expect-error テストのために型エラーを無視
+    expect(typeof gas.otherMethod).toBe('function');
   });
 });

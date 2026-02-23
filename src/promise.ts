@@ -23,6 +23,7 @@ export type GetPromisedServerScriptsOptions<
 > = {
   mockupFunctions?: PartialScriptType<T>;
   parseJson?: IsJson;
+  strictMock?: boolean;
 };
 
 export function getPromisedServerScripts<
@@ -47,7 +48,11 @@ export function getPromisedServerScripts<
 >(
   options: GetPromisedServerScriptsOptions<T> = {},
 ): Promised<T> | PromisedWithJson<T> {
-  const { mockupFunctions = {}, parseJson = false } = options;
+  const {
+    mockupFunctions = {},
+    parseJson = false,
+    strictMock = true,
+  } = options;
 
   return new Proxy<
     Record<string, ((...arg: any[]) => Promise<any>) | undefined>
@@ -56,7 +61,15 @@ export function getPromisedServerScripts<
       if (!('google' in globalThis) || !google?.script?.run) {
         const mockFunc = target[method];
         if (!mockFunc) {
-          return undefined;
+          if (strictMock) {
+            return undefined;
+          } else {
+            return async () => {
+              console.warn(
+                `[gasnuki] Warning: Called undefined mock function '${method}'. Falling back to void.`,
+              );
+            };
+          }
         }
         if (!parseJson) {
           return mockFunc;

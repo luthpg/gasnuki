@@ -173,6 +173,39 @@ const mockupFunctions: PartialScriptType<ServerScripts> = {
 export const gas = getPromisedServerScripts<ServerScripts>({ mockupFunctions });
 ```
 
+もし、バックエンドの関数をモックしないでフロントエンド開発を進めたい場合は、`getPromisedServerScripts`の第2引数に`{ strictMock: false }`を渡すことにより、モック関数を省略することができます。
+
+```ts
+// lib/gas.ts
+const mockupFunctions = {
+  sayHello: async (name) => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return `Hello from mockup, ${name}!`;
+  },
+  // アプリは`getContent`を使用していますが、モックはスキップします。
+};
+
+export const gas = getPromisedServerScripts<ServerScripts>({
+  mockupFunctions,
+  strictMock: false,
+});
+```
+
+```tsx
+// src/App.tsx
+import { gas } from './lib/gas';
+
+async function fetchData() {
+  try {
+    // `getContent`はモックされていないですが、ローカル環境でクラッシュせずに`void`が返されます。
+    const result = await gas.getContent('Sheet1');
+    console.log(result);
+  } catch (error) {
+    console.error(error);
+  }
+}
+```
+
 ### 型安全な JSON パース (Optional)
 
 通常、Google Apps Script とクライアント間の通信で `JSON.parse()` を使うと戻り値が `any` になってしまいます。また、`Date` 型などはシリアライズの過程で文字列に変換され、手動での復元が必要になります。
