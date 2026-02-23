@@ -173,6 +173,39 @@ const mockupFunctions: PartialScriptType<ServerScripts> = {
 export const gas = getPromisedServerScripts<ServerScripts>({ mockupFunctions });
 ```
 
+If you want to use un-mockup functions in your Frontend code, you can pass `{ strictMock: false }` as the first argument to `getPromisedServerScripts`.
+
+```ts
+// lib/gas.ts
+const mockupFunctions = {
+  sayHello: async (name) => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return `Hello from mockup, ${name}!`;
+  },
+  // app use the function `getContent`, but you don't want to mock it.
+};
+
+export const gas = getPromisedServerScripts<ServerScripts>({
+  mockupFunctions,
+  strictMock: false,
+});
+```
+
+```tsx
+// src/App.tsx
+import { gas } from './lib/gas';
+
+async function fetchData() {
+  try {
+    // `getContent` is not mocked, so in local env, it will return `void` as mocked.
+    const result = await gas.getContent('Sheet1');
+    console.log(result);
+  } catch (error) {
+    console.error(error);
+  }
+}
+```
+
 ### Type-Safe JSON Parsing (Optional)
 
 Normally, using `JSON.parse()` for communication between Google Apps Script and the client results in an `any` return type. Additionally, types like `Date` are converted to strings during serialization and require manual restoration.
