@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseArgs, runCli } from '../src/cli';
+import { parseArgs, runCli } from '../src/modules/cli';
 
 // commander, loadConfig, generateTypesのモック
 vi.mock('commander', () => {
