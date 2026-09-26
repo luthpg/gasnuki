@@ -508,15 +508,26 @@ export const generateAppsScriptTypes = async ({
       if (typeName === 'default' || typeName === '__type') continue;
 
       // Find the source file for this absolute path
+      const safeAddSourceFile = (p: string) => {
+        try {
+          const stat = fs.statSync(p, { throwIfNoEntry: false });
+          if (stat?.isFile()) {
+            return project.addSourceFileAtPathIfExists(p);
+          }
+        } catch {
+          // ignore error
+        }
+        return undefined;
+      };
+
       let sourceFile =
-        project.getSourceFile(absolutePath) ||
-        project.addSourceFileAtPathIfExists(absolutePath);
+        project.getSourceFile(absolutePath) || safeAddSourceFile(absolutePath);
       if (!sourceFile) {
-        const extensions = ['.ts', '.d.ts', '.tsx'];
+        const extensions = ['.ts', '.d.ts', '.tsx', '/index.ts', '/index.d.ts'];
         for (const ext of extensions) {
           sourceFile =
             project.getSourceFile(absolutePath + ext) ||
-            project.addSourceFileAtPathIfExists(absolutePath + ext);
+            safeAddSourceFile(absolutePath + ext);
           if (sourceFile) break;
         }
       }
